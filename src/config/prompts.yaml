@@ -1,0 +1,42 @@
+news_fetch:
+  template: |
+    Please provide the top {num_articles} most important technology and AI news stories from today.
+    Focus on:
+    - AI/ML developments and breakthroughs
+    - Tech industry news and trends
+    - Major tech company announcements
+    - Emerging technologies
+    - Tech policy and regulation
+    - Tech startup news
+    - Tech market trends
+    
+    For each story, include:
+    1. A clear headline
+    2. A concise summary
+    3. The source
+    4. The URL
+    5. The publication time
+    6. A category (e.g., AI/ML, Cloud Computing, Cybersecurity, Hardware, Software, Tech Policy)
+    7. An importance score (0-1)
+    8. A sentiment score (-1 to 1)
+    
+    Format the response as a JSON array of objects with these fields.
+
+news_analysis:
+  template: |
+    Analyze these technology and AI news articles and identify:
+    1. Major themes and trends in tech and AI
+    2. Most significant technological developments
+    3. Potential connections between different tech stories
+    4. Overall sentiment of the tech industry
+    5. Emerging patterns in AI development
+    6. Key players and their strategic moves
+    7. Potential impact on the tech industry
+    
+    Articles:
+    {articles_text}
+
+  # Additional configuration for analysis
+  max_tokens: 1000
+  temperature: 0.7
+  model: pplx-7b-online 
