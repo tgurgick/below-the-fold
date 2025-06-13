@@ -10,35 +10,16 @@ import json
 import logging
 import io
 import sys
+from queue import Queue
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Create a custom stream handler to capture logs
-class StreamlitLogHandler(logging.Handler):
-    def __init__(self):
-        super().__init__()
-        self.log_buffer = []
-        self.max_logs = 1000  # Keep last 1000 log entries
-
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            self.log_buffer.append(msg)
-            if len(self.log_buffer) > self.max_logs:
-                self.log_buffer.pop(0)
-        except Exception:
-            self.handleError(record)
-
-# Add the custom handler to the root logger
-log_handler = StreamlitLogHandler()
-log_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-logging.getLogger().addHandler(log_handler)
-
 # Constants
 API_BASE_URL = "http://localhost:8000"
 UPDATE_INTERVAL = 3600  # 1 hour in seconds
+LOG_UPDATE_INTERVAL = 1  # seconds
 
 # Custom theme configuration
 def apply_custom_theme():
@@ -113,11 +94,21 @@ def apply_custom_theme():
     """, unsafe_allow_html=True)
 
 def fetch_news() -> Dict:
-    """Fetch news from the API"""
+    """Fetch news data from the API"""
     try:
-        response = requests.get(f"{API_BASE_URL}/news/top")
-        response.raise_for_status()  # Raise an exception for bad status codes
-        return response.json()
+        # Fetch both recent news and top stories
+        recent_response = requests.get(f"{API_BASE_URL}/news/recent")
+        recent_response.raise_for_status()
+        recent_news = recent_response.json()
+
+        top_response = requests.get(f"{API_BASE_URL}/news/top")
+        top_response.raise_for_status()
+        top_stories = top_response.json()
+
+        return {
+            "recent_news": recent_news,
+            "top_stories": top_stories
+        }
     except requests.exceptions.ConnectionError:
         st.error(f"Could not connect to API server at {API_BASE_URL}. Is the server running?")
         return None
@@ -226,46 +217,56 @@ def display_token_usage(token_usage: Dict):
         st.plotly_chart(fig2, use_container_width=True)
 
 def display_news_articles(news_data: Dict):
-    """Display news articles in a grid"""
-    if not news_data or 'articles' not in news_data:
-        st.warning("No news data available")
+    """Display news articles in a grid layout"""
+    if not news_data:
         return
 
-    articles = news_data['articles']
-    
-    # Create a DataFrame for better visualization
-    df = pd.DataFrame(articles)
-    
-    # Sort by published_at in descending order (newest first)
-    df = df.sort_values('published_at', ascending=False)
-    
-    # Display each article in a card-like format
-    for _, article in df.iterrows():
-        with st.container():
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.subheader(article['title'])
-                st.write(article['summary'])
-                st.caption(f"Source: {article['source']} | Published: {article['published_at']}")
-                st.caption(f"Category: {article['category']}")
-                # Add why it matters section
-                st.markdown("**Why it matters:**")
-                st.write(article.get('why_it_matters', 'Analysis not available'))
-            with col2:
-                # Display importance and sentiment scores with appropriate delta colors
-                st.metric(
-                    "Importance",
-                    f"{article['importance_score']:.2f}",
-                    delta=None,
-                    delta_color="normal"
-                )
-                st.metric(
-                    "Sentiment",
-                    f"{article['sentiment_score']:.2f}",
-                    delta=None,
-                    delta_color="normal"
-                )
-            st.markdown("---")
+    # Create tabs for recent news and top stories
+    recent_tab, top_tab = st.tabs(["Recent News (Last 24 Hours)", "Top Stories (Last 7 Days)"])
+
+    with recent_tab:
+        if news_data.get("recent_news"):
+            articles = news_data["recent_news"].get("articles", [])
+            if articles:
+                for article in articles:
+                    with st.container():
+                        st.subheader(article["title"])
+                        st.write(article["summary"])
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.caption(f"Source: {article['source']}")
+                            st.caption(f"Published: {article['published_at']}")
+                        with col2:
+                            st.caption(f"Category: {article['category']}")
+                            st.caption(f"Importance: {article['importance_score']:.2f}")
+                        st.markdown(f"[Read more]({article['url']})")
+                        st.divider()
+            else:
+                st.info("No recent news articles available.")
+        else:
+            st.info("No recent news data available.")
+
+    with top_tab:
+        if news_data.get("top_stories"):
+            articles = news_data["top_stories"].get("articles", [])
+            if articles:
+                for article in articles:
+                    with st.container():
+                        st.subheader(article["title"])
+                        st.write(article["summary"])
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.caption(f"Source: {article['source']}")
+                            st.caption(f"Published: {article['published_at']}")
+                        with col2:
+                            st.caption(f"Category: {article['category']}")
+                            st.caption(f"Importance: {article['importance_score']:.2f}")
+                        st.markdown(f"[Read more]({article['url']})")
+                        st.divider()
+            else:
+                st.info("No top stories available.")
+        else:
+            st.info("No top stories data available.")
 
 def display_analysis(analysis_data: Dict):
     """Display news analysis"""
@@ -346,7 +347,7 @@ def display_sentiment_trend(news_data: Dict):
     st.plotly_chart(fig, use_container_width=True)
 
 def display_startup_summary(news_data: Dict):
-    """Display a summary of recent news trends on startup"""
+    """Display a condensed summary of recent tech news trends"""
     if not news_data or 'articles' not in news_data:
         return
 
@@ -363,32 +364,121 @@ def display_startup_summary(news_data: Dict):
     if len(recent_articles) == 0:
         return
     
-    st.subheader("📊 Recent News Summary")
+    st.subheader("📊 Tech News Digest")
     
-    # Group by category and count articles
-    category_counts = recent_articles['category'].value_counts()
+    # Create three columns for different news categories
+    col1, col2, col3 = st.columns(3)
     
-    # Display top categories
-    st.write("**Top Categories in the Last 7 Days:**")
-    for category, count in category_counts.head(3).items():
-        st.write(f"- {category}: {count} articles")
+    # Define more specific masks for each category
+    funding_mask = recent_articles['title'].str.contains(
+        'funding|raise|valuation|series|seed|round|venture|investment|acquired|acquisition|merger|M&A|bought|purchased', 
+        case=False, na=False
+    )
     
-    # Calculate average sentiment by category
-    sentiment_by_category = recent_articles.groupby('category')['sentiment_score'].mean()
+    research_mask = recent_articles['title'].str.contains(
+        'research|breakthrough|model|algorithm|study|paper|SOTA|neural|GPT|LLM|machine learning|AI model|new technology|innovation|technical', 
+        case=False, na=False
+    )
     
-    # Display sentiment trends
-    st.write("\n**Sentiment Trends:**")
-    for category, sentiment in sentiment_by_category.items():
-        sentiment_label = "Positive" if sentiment > 0.2 else "Negative" if sentiment < -0.2 else "Neutral"
-        st.write(f"- {category}: {sentiment_label} ({sentiment:.2f})")
+    # Get articles for each category
+    funding_news = recent_articles[funding_mask].head(3)
+    research_news = recent_articles[research_mask].head(3)
     
-    # Display most important stories
-    st.write("\n**Most Important Stories:**")
-    important_stories = recent_articles.nlargest(3, 'importance_score')
-    for _, story in important_stories.iterrows():
-        st.write(f"- {story['title']} (Importance: {story['importance_score']:.2f})")
+    # Get remaining articles for major news, excluding those already in funding or research
+    major_news = recent_articles[~(funding_mask | research_mask)].nlargest(3, 'importance_score')
+    
+    with col1:
+        st.markdown("**🔬 Major News**")
+        for _, story in major_news.iterrows():
+            st.markdown(f"{story['title']}")
+            if 'summary' in story and pd.notna(story['summary']):
+                st.caption(f"_{story['summary'][:100]}..._")
+    
+    with col2:
+        st.markdown("**💰 Funding & M&A**")
+        if len(funding_news) == 0:
+            st.caption("_No recent funding or M&A news_")
+        for _, story in funding_news.iterrows():
+            st.markdown(f"{story['title']}")
+            if 'summary' in story and pd.notna(story['summary']):
+                st.caption(f"_{story['summary'][:100]}..._")
+    
+    with col3:
+        st.markdown("**🤖 SOTA & Research**")
+        if len(research_news) == 0:
+            st.caption("_No recent research breakthroughs_")
+        for _, story in research_news.iterrows():
+            st.markdown(f"{story['title']}")
+            if 'summary' in story and pd.notna(story['summary']):
+                st.caption(f"_{story['summary'][:100]}..._")
     
     st.markdown("---")
+
+class LogHandler(logging.Handler):
+    def __init__(self, max_logs=1000):
+        super().__init__()
+        self.log_buffer = []
+        self.max_logs = max_logs
+        self.log_queue = Queue()
+        self.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            self.log_queue.put(msg)
+            self.log_buffer.append(msg)
+            if len(self.log_buffer) > self.max_logs:
+                self.log_buffer.pop(0)
+        except Exception:
+            self.handleError(record)
+
+# Initialize the log handler
+log_handler = LogHandler()
+logging.getLogger().addHandler(log_handler)
+
+def fetch_logs() -> List[str]:
+    """Fetch new logs from the queue"""
+    logs = []
+    while not log_handler.log_queue.empty():
+        logs.append(log_handler.log_queue.get())
+    return logs
+
+def display_logs():
+    """Display logs in a streaming format"""
+    st.subheader("Application Logs")
+    
+    # Create a container for logs
+    log_container = st.empty()
+    
+    # Initialize session state for logs if not exists
+    if 'logs' not in st.session_state:
+        st.session_state.logs = []
+    
+    # Function to update logs
+    def update_logs():
+        while True:
+            new_logs = fetch_logs()
+            if new_logs:
+                st.session_state.logs.extend(new_logs)
+                # Keep only the last 1000 logs
+                if len(st.session_state.logs) > 1000:
+                    st.session_state.logs = st.session_state.logs[-1000:]
+                # Update the display
+                log_container.code("\n".join(st.session_state.logs), language="text")
+            time.sleep(LOG_UPDATE_INTERVAL)
+    
+    # Start the log update thread if not already running
+    if 'log_thread' not in st.session_state:
+        st.session_state.log_thread = threading.Thread(target=update_logs, daemon=True)
+        st.session_state.log_thread.start()
+    
+    # Display current logs
+    log_container.code("\n".join(st.session_state.logs), language="text")
+    
+    # Add a clear logs button
+    if st.button("Clear Logs"):
+        st.session_state.logs = []
+        log_container.code("", language="text")
 
 def main():
     st.set_page_config(
@@ -418,14 +508,7 @@ def main():
         display_token_usage(st.session_state.token_usage)
     
     with tab3:
-        st.subheader("Application Logs")
-        # Display logs in a monospace font with a dark background
-        log_text = "\n".join(log_handler.log_buffer)
-        st.code(log_text, language="text")
-        
-        # Add a refresh button
-        if st.button("Refresh Logs"):
-            st.rerun()
+        display_logs()
 
 if __name__ == "__main__":
     try:

@@ -1,27 +1,72 @@
 news_fetch:
   template: |
-    Please provide the top {num_articles} most important technology and AI news stories from today.
-    Focus on:
+    Please provide the {num_articles} most recent technology and AI news stories from the last 24 hours.
+    Focus on breaking news and latest developments in:
     - AI/ML developments and breakthroughs
     - Tech industry news and trends
     - Major tech company announcements
     - Emerging technologies
     - Tech policy and regulation
-    - Tech startup news
+    - Tech startup news and funding rounds
     - Tech market trends
     
     For each story, include:
     1. A clear headline
-    2. A concise summary
-    3. The source
-    4. The URL
-    5. The publication time
-    6. A category (e.g., AI/ML, Cloud Computing, Cybersecurity, Hardware, Software, Tech Policy)
-    7. An importance score (0-1)
-    8. A sentiment score (-1 to 1)
-    9. A brief explanation of why this story matters and its potential impact
+    2. A concise summary (2-3 sentences)
+    3. The source (must be a real, reputable news outlet such as The Verge, TechCrunch, Wired, MIT Technology Review, The New York Times, Financial Times, Nature, Science, etc.)
+    4. The actual URL to the original article from the source
+    5. Publication time (in ISO format with timezone)
+    6. Category (e.g., AI/ML, Cloud Computing, Cybersecurity, Hardware, Software, Tech Policy, Funding)
+    7. Importance score (0-1)
+    8. Sentiment score (-1 to 1)
+    9. Why it matters (a brief explanation of why this story is significant)
     
-    Format the response as a JSON array of objects with these fields.
+    Important requirements:
+    - Each story must come from a different reputable source
+    - Sources must be real, established news outlets or academic institutions
+    - URLs must be valid and point to actual articles
+    - Only include stories from the last 24 hours
+    - If you cannot find a reputable source for a story, skip it and select another
+    
+    Format the response as a JSON array of articles. Ensure to include a mix of funding news, research breakthroughs, and general tech news.
+  max_tokens: 2500
+  temperature: 0.7
+  model: pplx-7b-online
+
+top_stories:
+  template: |
+    Please provide the {num_articles} most significant technology and AI news stories from the last 7 days.
+    Focus on the most impactful and important developments in:
+    - AI/ML developments and breakthroughs
+    - Tech industry news and trends
+    - Major tech company announcements
+    - Emerging technologies
+    - Tech policy and regulation
+    - Tech startup news and funding rounds
+    - Tech market trends
+    
+    For each story, include:
+    1. A clear headline
+    2. A concise summary (2-3 sentences)
+    3. The source (must be a real, reputable news outlet such as The Verge, TechCrunch, Wired, MIT Technology Review, The New York Times, Financial Times, Nature, Science, etc.)
+    4. The actual URL to the original article from the source
+    5. Publication time (in ISO format with timezone)
+    6. Category (e.g., AI/ML, Cloud Computing, Cybersecurity, Hardware, Software, Tech Policy, Funding)
+    7. Importance score (0-1)
+    8. Sentiment score (-1 to 1)
+    9. Why it matters (a brief explanation of why this story is significant)
+    
+    Important requirements:
+    - Each story must come from a different reputable source
+    - Sources must be real, established news outlets or academic institutions
+    - URLs must be valid and point to actual articles
+    - Focus on the most significant stories from the past 7 days, regardless of exact timing
+    - If you cannot find a reputable source for a story, skip it and select another
+    
+    Format the response as a JSON array of articles. Ensure to include a mix of funding news, research breakthroughs, and general tech news.
+  max_tokens: 2500
+  temperature: 0.7
+  model: pplx-7b-online
 
 news_analysis:
   template: |
@@ -36,8 +81,6 @@ news_analysis:
     
     Articles:
     {articles_text}
-
-  # Additional configuration for analysis
-  max_tokens: 1000
+  max_tokens: 2000
   temperature: 0.7
   model: pplx-7b-online 
