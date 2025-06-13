@@ -19,6 +19,7 @@ news_fetch:
     6. A category (e.g., AI/ML, Cloud Computing, Cybersecurity, Hardware, Software, Tech Policy)
     7. An importance score (0-1)
     8. A sentiment score (-1 to 1)
+    9. A brief explanation of why this story matters and its potential impact
     
     Format the response as a JSON array of objects with these fields.
 

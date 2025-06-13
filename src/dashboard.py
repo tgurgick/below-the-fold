@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
 import threading
 from typing import Dict, List
@@ -166,7 +166,7 @@ def update_data():
         st.session_state.news_data = fetch_news()
         st.session_state.analysis_data = fetch_analysis()
         st.session_state.token_usage = fetch_token_usage()
-        st.session_state.last_update = datetime.now()
+        st.session_state.last_update = datetime.now(timezone.utc)
         time.sleep(UPDATE_INTERVAL)
 
 def initialize_session_state():
@@ -178,7 +178,7 @@ def initialize_session_state():
     if 'token_usage' not in st.session_state:
         st.session_state.token_usage = fetch_token_usage()
     if 'last_update' not in st.session_state:
-        st.session_state.last_update = datetime.now()
+        st.session_state.last_update = datetime.now(timezone.utc)
 
 def display_token_usage(token_usage: Dict):
     """Display token usage statistics"""
@@ -236,6 +236,9 @@ def display_news_articles(news_data: Dict):
     # Create a DataFrame for better visualization
     df = pd.DataFrame(articles)
     
+    # Sort by published_at in descending order (newest first)
+    df = df.sort_values('published_at', ascending=False)
+    
     # Display each article in a card-like format
     for _, article in df.iterrows():
         with st.container():
@@ -245,6 +248,9 @@ def display_news_articles(news_data: Dict):
                 st.write(article['summary'])
                 st.caption(f"Source: {article['source']} | Published: {article['published_at']}")
                 st.caption(f"Category: {article['category']}")
+                # Add why it matters section
+                st.markdown("**Why it matters:**")
+                st.write(article.get('why_it_matters', 'Analysis not available'))
             with col2:
                 # Display importance and sentiment scores with appropriate delta colors
                 st.metric(
@@ -339,6 +345,51 @@ def display_sentiment_trend(news_data: Dict):
     
     st.plotly_chart(fig, use_container_width=True)
 
+def display_startup_summary(news_data: Dict):
+    """Display a summary of recent news trends on startup"""
+    if not news_data or 'articles' not in news_data:
+        return
+
+    articles = news_data['articles']
+    df = pd.DataFrame(articles)
+    
+    # Convert published_at strings to datetime objects using ISO8601 format
+    df['published_at'] = pd.to_datetime(df['published_at'], format='ISO8601')
+    
+    # Filter for articles from the last 7 days
+    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    recent_articles = df[df['published_at'] >= seven_days_ago]
+    
+    if len(recent_articles) == 0:
+        return
+    
+    st.subheader("📊 Recent News Summary")
+    
+    # Group by category and count articles
+    category_counts = recent_articles['category'].value_counts()
+    
+    # Display top categories
+    st.write("**Top Categories in the Last 7 Days:**")
+    for category, count in category_counts.head(3).items():
+        st.write(f"- {category}: {count} articles")
+    
+    # Calculate average sentiment by category
+    sentiment_by_category = recent_articles.groupby('category')['sentiment_score'].mean()
+    
+    # Display sentiment trends
+    st.write("\n**Sentiment Trends:**")
+    for category, sentiment in sentiment_by_category.items():
+        sentiment_label = "Positive" if sentiment > 0.2 else "Negative" if sentiment < -0.2 else "Neutral"
+        st.write(f"- {category}: {sentiment_label} ({sentiment:.2f})")
+    
+    # Display most important stories
+    st.write("\n**Most Important Stories:**")
+    important_stories = recent_articles.nlargest(3, 'importance_score')
+    for _, story in important_stories.iterrows():
+        st.write(f"- {story['title']} (Importance: {story['importance_score']:.2f})")
+    
+    st.markdown("---")
+
 def main():
     st.set_page_config(
         page_title="Below the Fold - Tech News Dashboard",
@@ -353,6 +404,9 @@ def main():
     initialize_session_state()
 
     st.title("Below the Fold - Tech News Dashboard")
+    
+    # Display startup summary
+    display_startup_summary(st.session_state.news_data)
     
     # Create tabs
     tab1, tab2, tab3 = st.tabs(["News Feed", "Token Usage", "Logs"])

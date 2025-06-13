@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import requests
 from typing import List, Dict, Any
 from dotenv import load_dotenv
@@ -51,7 +51,7 @@ class PerplexityAgent:
                     "messages": [
                         {
                             "role": "system",
-                            "content": "You are a helpful assistant that provides news in a structured JSON format. Always respond with valid JSON. Each article must include: headline, summary, source, url, publication_time (in ISO format), category, importance_score (0-1), and sentiment_score (-1 to 1)."
+                            "content": "You are a helpful assistant that provides news in a structured JSON format. Always respond with valid JSON. Each article must include: headline, summary, source, url, publication_time (in ISO format with timezone), category, importance_score (0-1), sentiment_score (-1 to 1), and why_it_matters (a brief explanation of why this story is significant)."
                         },
                         {
                             "role": "user",
@@ -86,10 +86,12 @@ class PerplexityAgent:
                 if published_at:
                     try:
                         published_at = datetime.fromisoformat(published_at)
+                        if published_at.tzinfo is None:
+                            published_at = published_at.replace(tzinfo=timezone.utc)
                     except ValueError:
-                        published_at = datetime.now()
+                        published_at = datetime.now(timezone.utc)
                 else:
-                    published_at = datetime.now()
+                    published_at = datetime.now(timezone.utc)
 
                 articles.append(NewsArticle(
                     title=article.get("headline", "No Title"),
@@ -99,13 +101,14 @@ class PerplexityAgent:
                     published_at=published_at,
                     category=article.get("category", "General"),
                     importance_score=float(article.get("importance_score", 0.5)),
-                    sentiment_score=float(article.get("sentiment_score", 0.0))
+                    sentiment_score=float(article.get("sentiment_score", 0.0)),
+                    why_it_matters=article.get("why_it_matters", "Analysis not available")
                 ))
             
             return NewsResponse(
                 articles=articles,
                 total_articles=len(articles),
-                timestamp=datetime.now()
+                timestamp=datetime.now(timezone.utc)
             )
             
         except Exception as e:
