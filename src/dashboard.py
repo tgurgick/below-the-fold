@@ -12,6 +12,7 @@ import io
 import sys
 from queue import Queue
 import os
+import re
 
 # Configure logging
 logging.basicConfig(
@@ -250,53 +251,89 @@ def check_for_updates():
             st.session_state.news_data = news_data
             st.session_state.last_update = current_time
             st.session_state.next_update = current_time + timedelta(seconds=st.session_state.update_interval)
+            
+            # Also refresh token usage periodically
+            refresh_token_usage()
+            
             return True
     return False
 
 def display_token_usage(token_usage: Dict):
     """Display token usage statistics"""
+    st.subheader("💰 Token Usage & Cost")
+    
+    # Add refresh button
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if st.button("🔄 Refresh", key="refresh_tokens", help="Update token usage data"):
+            if refresh_token_usage():
+                st.success("Token usage updated!")
+            else:
+                st.error("Failed to update token usage")
+            st.rerun()
+    with col2:
+        st.caption("Last updated: " + datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'))
+    
     if not token_usage:
+        st.warning("No token usage data available. Make sure the API server is running and try refreshing.")
         return
 
-    st.subheader("Token Usage & Cost")
-    
     # Create metrics for token usage
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Total Tokens", f"{token_usage['total_tokens']:,}")
+        total_tokens = token_usage.get('total_tokens', 0)
+        st.metric("Total Tokens", f"{total_tokens:,}")
     with col2:
-        st.metric("Total Cost", f"${token_usage['total_cost']:.4f}")
+        total_cost = token_usage.get('total_cost', 0.0)
+        st.metric("Total Cost", f"${total_cost:.4f}")
     with col3:
-        if token_usage['usage_history']:
-            last_usage = token_usage['usage_history'][-1]
-            st.metric("Last Request Tokens", f"{last_usage['total_tokens']:,}")
+        usage_history = token_usage.get('usage_history', [])
+        if usage_history:
+            last_usage = usage_history[-1]
+            last_tokens = last_usage.get('total_tokens', 0)
+            st.metric("Last Request Tokens", f"{last_tokens:,}")
+        else:
+            st.metric("Last Request Tokens", "0")
 
     # Create token usage history chart
-    if token_usage['usage_history']:
-        df = pd.DataFrame(token_usage['usage_history'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        
-        # Create line chart for token usage over time
-        fig = px.line(
-            df,
-            x='timestamp',
-            y='total_tokens',
-            title="Token Usage Over Time",
-            labels={'total_tokens': 'Tokens Used', 'timestamp': 'Time'},
-            template="plotly_dark"
-        )
-        st.plotly_chart(fig, use_container_width=True)
+    if usage_history:
+        try:
+            df = pd.DataFrame(usage_history)
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            
+            # Create line chart for token usage over time
+            fig = px.line(
+                df,
+                x='timestamp',
+                y='total_tokens',
+                title="Token Usage Over Time",
+                labels={'total_tokens': 'Tokens Used', 'timestamp': 'Time'},
+                template="plotly_dark"
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-        # Create bar chart for cost distribution
-        fig2 = px.bar(
-            df,
-            x='timestamp',
-            y='cost',
-            title="Cost per Request",
-            labels={'cost': 'Cost ($)', 'timestamp': 'Time'},
-            template="plotly_dark"
-        )
-        st.plotly_chart(fig2, use_container_width=True)
+            # Create bar chart for cost distribution
+            fig2 = px.bar(
+                df,
+                x='timestamp',
+                y='cost',
+                title="Cost per Request",
+                labels={'cost': 'Cost ($)', 'timestamp': 'Time'},
+                template="plotly_dark"
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+            
+            # Show usage history table
+            st.subheader("Recent Usage History")
+            display_df = df.copy()
+            display_df['timestamp'] = display_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+            display_df['cost'] = display_df['cost'].apply(lambda x: f"${x:.4f}")
+            st.dataframe(display_df[['timestamp', 'total_tokens', 'cost', 'model']], use_container_width=True)
+            
+        except Exception as e:
+            st.error(f"Error displaying token usage charts: {str(e)}")
+    else:
+        st.info("No usage history available yet. Token usage will appear here after making API requests.")
 
 def display_news_articles(articles: List[Dict], category: str):
     """Display news articles for a specific category"""
@@ -304,7 +341,7 @@ def display_news_articles(articles: List[Dict], category: str):
         st.warning(f"No {category} articles available at this time.")
         return
         
-    st.subheader(f"📰 {category}")
+    st.subheader(f" {category}")
     
     # Create a more organized layout for articles
     for i, article in enumerate(articles):
@@ -366,8 +403,11 @@ def display_ai_trends_summary():
     # Fetch AI trends summary
     trends_summary = fetch_ai_trends()
     if trends_summary:
-        # Display the structured summary with proper markdown
-        st.markdown(trends_summary)
+        # Process reference links to make them clickable
+        processed_summary = process_reference_links(trends_summary)
+        
+        # Display the structured summary with proper markdown and HTML rendering
+        st.markdown(processed_summary, unsafe_allow_html=True)
         
         # Add a refresh button for trends
         col1, col2 = st.columns([1, 4])
@@ -379,6 +419,42 @@ def display_ai_trends_summary():
     else:
         st.warning("Unable to fetch AI trends summary at this time.")
         st.info("The AI trends summary provides executive-level insights on strategic developments, technology breakthroughs, and actionable recommendations for AI leaders.")
+
+def process_reference_links(text: str) -> str:
+    """Convert reference numbers like [1], [2] to clickable links with tooltips"""
+    # Pattern to match reference numbers like [1], [2], etc.
+    pattern = r'\[(\d+)\]'
+    
+    def replace_reference(match):
+        ref_num = match.group(1)
+        # Create a clickable link with tooltip
+        return f'<a href="#ref-{ref_num}" style="color: #00ACB5; text-decoration: none; font-weight: bold;" title="Click to view reference {ref_num}">[{ref_num}]</a>'
+    
+    # Replace all reference numbers with clickable links
+    processed_text = re.sub(pattern, replace_reference, text)
+    
+    # Add a references section at the end if there are any references
+    references = re.findall(pattern, text)
+    if references:
+        processed_text += "\n\n---\n\n**📚 References:**\n"
+        for ref_num in sorted(set(references), key=int):
+            processed_text += f'<div id="ref-{ref_num}" style="margin: 10px 0; padding: 15px; background-color: #1E1E1E; border-radius: 8px; border-left: 4px solid #00ACB5; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">'
+            processed_text += f'<strong style="color: #00ACB5;">[{ref_num}]</strong> - <em>Reference {ref_num}</em><br>'
+            processed_text += f'<small style="color: #A0A0A0; display: block; margin-top: 5px;">📖 Click the numbered link above to view this reference in context</small>'
+            processed_text += '</div>\n'
+    
+    return processed_text
+
+def refresh_token_usage():
+    """Refresh token usage data"""
+    try:
+        new_usage = fetch_token_usage()
+        if new_usage:
+            st.session_state.token_usage = new_usage
+            return True
+    except Exception as e:
+        logger.error(f"Error refreshing token usage: {str(e)}")
+    return False
 
 def display_all_articles():
     """Display all news articles in organized sections"""
