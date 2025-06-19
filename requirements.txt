@@ -1,18 +1,14 @@
 # Core dependencies
-python-dotenv==1.0.0
+python-dotenv==1.0.1
 requests==2.31.0
-pydantic==2.5.2
-fastapi==0.104.1
-uvicorn==0.24.0
+pydantic==2.6.1
+fastapi==0.109.2
+uvicorn==0.27.1
 pyyaml==6.0.1
 tiktoken==0.5.2
 
-# API and web server
-starlette==0.27.0
-typing-extensions==4.8.0
-
 # UI and Dashboard
-streamlit==1.29.0
+streamlit==1.31.1
 plotly==5.18.0
 pandas==2.0.3
 
@@ -20,4 +16,7 @@ pandas==2.0.3
 pytest==7.4.3
 black==23.11.0
 isort==5.12.0
-flake8==5.0.4 
+flake8==5.0.4
+
+# Additional dependencies
+python-multipart==0.0.9 

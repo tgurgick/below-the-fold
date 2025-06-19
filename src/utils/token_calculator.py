@@ -8,7 +8,8 @@ class TokenCalculator:
         self.encoding = tiktoken.get_encoding("cl100k_base")  # Perplexity uses GPT-4 tokenizer
         # Perplexity API costs (as of 2024)
         self.COST_PER_1K_TOKENS = {
-            "pplx-7b-online": 0.0001,  # $0.0001 per 1K tokens
+            "sonar": 0.0003,  # $0.0003 per 1K tokens (input + output)
+            "pplx-7b-online": 0.0001,  # $0.0001 per 1K tokens (legacy)
         }
         self.total_tokens = 0
         self.total_cost = 0.0
@@ -18,12 +19,12 @@ class TokenCalculator:
         """Count the number of tokens in a text string."""
         return len(self.encoding.encode(text))
 
-    def calculate_cost(self, tokens: int, model: str = "pplx-7b-online") -> float:
+    def calculate_cost(self, tokens: int, model: str = "sonar") -> float:
         """Calculate the cost for a given number of tokens."""
-        cost_per_1k = self.COST_PER_1K_TOKENS.get(model, 0.0001)  # Default to pplx-7b-online cost
+        cost_per_1k = self.COST_PER_1K_TOKENS.get(model, 0.0003)  # Default to sonar cost
         return (tokens / 1000) * cost_per_1k
 
-    def add_usage(self, prompt: str, response: str, model: str = "pplx-7b-online"):
+    def add_usage(self, prompt: str, response: str, model: str = "sonar"):
         """Add a new usage record and update totals."""
         prompt_tokens = self.count_tokens(prompt)
         response_tokens = self.count_tokens(response)

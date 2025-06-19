@@ -1,9 +1,25 @@
-from pydantic import BaseModel, validator, HttpUrl
+from pydantic import BaseModel, Field, validator, HttpUrl
 from typing import List, Optional
 from datetime import datetime
 import logging
+import re
 
 logger = logging.getLogger(__name__)
+
+ALLOWED_SOURCES = {
+    "The Verge",
+    "TechCrunch",
+    "Wired",
+    "MIT Technology Review",
+    "The New York Times",
+    "Financial Times",
+    "Nature",
+    "Science",
+    "Reuters",
+    "Bloomberg",
+    "CNBC",
+    "Wall Street Journal"
+}
 
 class NewsArticle(BaseModel):
     title: str
@@ -11,38 +27,21 @@ class NewsArticle(BaseModel):
     source: str
     url: str
     published_at: datetime
-    category: Optional[str] = None
-    importance_score: Optional[float] = None
-    sentiment_score: Optional[float] = None
-    why_it_matters: Optional[str] = None
+    category: str
+    importance_score: float = Field(ge=0, le=1)
+    sentiment_score: float = Field(ge=-1, le=1)
+    why_it_matters: str
 
     @validator('source')
     def validate_source(cls, v):
-        if not v:
-            raise ValueError('Source cannot be empty')
-        # List of known reputable sources
-        reputable_sources = [
-            'the verge', 'techcrunch', 'wired', 'mit technology review', 
-            'new york times', 'financial times', 'nature', 'science',
-            'reuters', 'bloomberg', 'wall street journal', 'washington post',
-            'the guardian', 'the economist', 'fortune', 'business insider',
-            'cnbc', 'techradar', 'engadget', 'venturebeat', 'zdnet',
-            'arstechnica', 'the information', 'protocol', 'axios',
-            'btw media'  # Temporarily allow this source for debugging
-        ]
-        # Check if source contains any of the reputable sources (case insensitive)
-        if not any(source in v.lower() for source in reputable_sources):
-            logger.warning(f"Source validation failed for: {v}")
-            # Temporarily allow any non-empty source for debugging
-            return v
+        if v not in ALLOWED_SOURCES:
+            raise ValueError(f"Source must be one of: {', '.join(sorted(ALLOWED_SOURCES))}")
         return v
 
     @validator('url')
     def validate_url(cls, v):
-        if not v:
-            raise ValueError('URL cannot be empty')
         if not v.startswith(('http://', 'https://')):
-            raise ValueError('URL must start with http:// or https://')
+            raise ValueError("URL must start with http:// or https://")
         return v
 
 class NewsResponse(BaseModel):

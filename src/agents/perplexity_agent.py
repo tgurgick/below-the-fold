@@ -1,15 +1,17 @@
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(override=True)
+
 import json
 from datetime import datetime, timezone
 import requests
-from typing import List, Dict, Any
-from dotenv import load_dotenv
-from ..models.news import NewsArticle, NewsResponse
-from ..config.loader import ConfigLoader
-from ..utils.token_calculator import TokenCalculator
+from typing import List, Dict, Any, Optional
+from src.models.news import NewsArticle, NewsResponse
+from src.config.loader import ConfigLoader
+from src.utils.token_calculator import TokenCalculator
 import logging
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -27,19 +29,21 @@ class PerplexityAgent:
         self.config_loader = ConfigLoader()
         self.token_calculator = TokenCalculator()
 
-    async def get_top_news(self, num_articles: int = 10, prompt_key: str = 'news_fetch') -> NewsResponse:
+    async def get_top_news(self, num_articles: int = 10, prompt_key: str = 'news_fetch', categories: List[str] = None) -> NewsResponse:
         """
         Fetch and process top news stories using Perplexity's API.
         
         Args:
             num_articles (int): Number of articles to fetch
             prompt_key (str): Key of the prompt template to use (default: 'news_fetch')
+            categories (List[str], optional): List of categories to filter news by
             
         Returns:
             NewsResponse: Processed news articles
         """
         prompt = self.config_loader.get_prompt('prompts.yaml', prompt_key).format(
-            num_articles=num_articles
+            num_articles=num_articles,
+            categories=', '.join(categories) if categories else 'all'
         )
 
         try:
@@ -94,7 +98,7 @@ Requirements:
             logger.debug(f"Raw API response content: {content}")
             
             # Track token usage
-            self.token_calculator.add_usage(prompt, content)
+            self.token_calculator.add_usage(prompt, content, "sonar")
             
             try:
                 # First try to parse the content directly
@@ -234,12 +238,55 @@ Requirements:
             content = response.json()["choices"][0]["message"]["content"]
             
             # Track token usage
-            self.token_calculator.add_usage(prompt, content)
+            self.token_calculator.add_usage(prompt, content, "sonar")
             
             return content
             
         except Exception as e:
             raise Exception(f"Error analyzing news trends: {str(e)}")
+
+    async def generate_ai_trends_summary(self) -> str:
+        """
+        Generate a summary of AI trends over the past week.
+        
+        Returns:
+            str: AI trends summary
+        """
+        prompt = self.config_loader.get_prompt('prompts.yaml', 'ai_trends_summary')
+
+        try:
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                    "accept": "application/json"
+                },
+                json={
+                    "model": "sonar",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are an AI trends analyst. Provide insightful, well-structured summaries of AI developments."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ]
+                }
+            )
+            response.raise_for_status()
+            
+            content = response.json()["choices"][0]["message"]["content"]
+            
+            # Track token usage
+            self.token_calculator.add_usage(prompt, content, "sonar")
+            
+            return content
+            
+        except Exception as e:
+            raise Exception(f"Error generating AI trends summary: {str(e)}")
 
     def get_token_usage(self) -> Dict[str, Any]:
         """

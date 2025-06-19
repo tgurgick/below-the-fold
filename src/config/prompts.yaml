@@ -13,25 +13,135 @@ news_fetch:
     For each story, include:
     1. A clear headline
     2. A concise summary (2-3 sentences)
-    3. The source (must be a real, reputable news outlet such as The Verge, TechCrunch, Wired, MIT Technology Review, The New York Times, Financial Times, Nature, Science, etc.)
-    4. The actual URL to the original article from the source
+    3. The source (MUST be one of these specific outlets: The Verge, TechCrunch, Wired, MIT Technology Review, The New York Times, Financial Times, Nature, Science, Reuters, Bloomberg, CNBC, Wall Street Journal)
+    4. The URL (MUST be a valid, working URL starting with https:// that links directly to the article on the source's website)
     5. Publication time (in ISO format with timezone)
     6. Category (e.g., AI/ML, Cloud Computing, Cybersecurity, Hardware, Software, Tech Policy, Funding)
     7. Importance score (0-1)
     8. Sentiment score (-1 to 1)
     9. Why it matters (a brief explanation of why this story is significant)
     
-    Important requirements:
-    - Each story must come from a different reputable source
-    - Sources must be real, established news outlets or academic institutions
-    - URLs must be valid and point to actual articles
+    CRITICAL REQUIREMENTS:
+    - Each story MUST come from a different source from the list above
+    - Each URL MUST be a real, working URL starting with https:// that points to the actual article
+    - DO NOT include any story if you cannot find its actual URL
+    - DO NOT make up or guess URLs
     - Only include stories from the last 24 hours
-    - If you cannot find a reputable source for a story, skip it and select another
+    - If you cannot find enough stories meeting these requirements, return fewer stories
     
     Format the response as a JSON array of articles. Ensure to include a mix of funding news, research breakthroughs, and general tech news.
   max_tokens: 2500
   temperature: 0.7
-  model: pplx-7b-online
+  model: sonar
+
+breaking_news:
+  template: |
+    Please provide the {num_articles} most recent breaking technology and AI news stories from the last 24 hours.
+    Focus on urgent, time-sensitive developments in:
+    - AI/ML breakthroughs and announcements
+    - Major tech company news and announcements
+    - Tech industry breaking news
+    - Emerging technology developments
+    - Tech policy and regulatory changes
+    - Tech startup funding and acquisitions
+    - Market-moving tech news
+    
+    For each story, include:
+    1. A clear headline
+    2. A concise summary (2-3 sentences)
+    3. The source (MUST be one of these specific outlets: The Verge, TechCrunch, Wired, MIT Technology Review, The New York Times, Financial Times, Nature, Science, Reuters, Bloomberg, CNBC, Wall Street Journal)
+    4. The URL (MUST be a valid, working URL starting with https:// that links directly to the article on the source's website)
+    5. Publication time (in ISO format with timezone)
+    6. Category (e.g., AI/ML, Cloud Computing, Cybersecurity, Hardware, Software, Tech Policy, Funding)
+    7. Importance score (0-1)
+    8. Sentiment score (-1 to 1)
+    9. Why it matters (a brief explanation of why this story is significant)
+    
+    CRITICAL REQUIREMENTS:
+    - Each story MUST come from a different source from the list above
+    - Each URL MUST be a real, working URL starting with https:// that points to the actual article
+    - DO NOT include any story if you cannot find its actual URL
+    - DO NOT make up or guess URLs
+    - Only include stories from the last 24 hours
+    - Focus on breaking, urgent news
+    - If you cannot find enough stories meeting these requirements, return fewer stories
+    
+    Format the response as a JSON array of articles.
+  max_tokens: 2500
+  temperature: 0.7
+  model: sonar
+
+funding_news:
+  template: |
+    Please provide the {num_articles} most recent technology funding and M&A news stories from the last 24 hours.
+    Focus on:
+    - Startup funding rounds and valuations
+    - Venture capital investments
+    - Mergers and acquisitions
+    - IPO announcements
+    - Corporate investments in tech
+    - Tech company financial news
+    
+    For each story, include:
+    1. A clear headline
+    2. A concise summary (2-3 sentences)
+    3. The source (MUST be one of these specific outlets: The Verge, TechCrunch, Wired, MIT Technology Review, The New York Times, Financial Times, Nature, Science, Reuters, Bloomberg, CNBC, Wall Street Journal)
+    4. The URL (MUST be a valid, working URL starting with https:// that links directly to the article on the source's website)
+    5. Publication time (in ISO format with timezone)
+    6. Category (e.g., Funding, M&A, IPO, Investment)
+    7. Importance score (0-1)
+    8. Sentiment score (-1 to 1)
+    9. Why it matters (a brief explanation of why this story is significant)
+    
+    CRITICAL REQUIREMENTS:
+    - Each story MUST come from a different source from the list above
+    - Each URL MUST be a real, working URL starting with https:// that points to the actual article
+    - DO NOT include any story if you cannot find its actual URL
+    - DO NOT make up or guess URLs
+    - Only include stories from the last 24 hours
+    - Focus specifically on funding, M&A, and financial news
+    - If you cannot find enough stories meeting these requirements, return fewer stories
+    
+    Format the response as a JSON array of articles.
+  max_tokens: 2500
+  temperature: 0.7
+  model: sonar
+
+research_news:
+  template: |
+    Please provide the {num_articles} most recent technology research and breakthrough news stories from the last 24 hours.
+    Focus on:
+    - AI/ML research breakthroughs
+    - New technology developments
+    - Scientific discoveries in tech
+    - Research papers and studies
+    - Technical innovations
+    - Academic research in technology
+    
+    For each story, include:
+    1. A clear headline
+    2. A concise summary (2-3 sentences)
+    3. The source (MUST be one of these specific outlets: The Verge, TechCrunch, Wired, MIT Technology Review, The New York Times, Financial Times, Nature, Science, Reuters, Bloomberg, CNBC, Wall Street Journal)
+    4. The URL (MUST be a valid, working URL starting with https:// that links directly to the article on the source's website)
+    5. Publication time (in ISO format with timezone)
+    6. Category (e.g., Research, AI/ML, Innovation, Science)
+    7. Importance score (0-1)
+    8. Sentiment score (-1 to 1)
+    9. Why it matters (a brief explanation of why this story is significant)
+    
+    CRITICAL REQUIREMENTS:
+    - Each story MUST come from a different source from the list above
+    - Each URL MUST be a real, working URL starting with https:// that points to the actual article
+    - DO NOT include any story if you cannot find its actual URL
+    - DO NOT make up or guess URLs
+    - Only include stories from the last 24 hours
+    - Focus specifically on research, breakthroughs, and technical innovations
+    - If you cannot find enough stories meeting these requirements, return fewer stories
+    
+    Format the response as a JSON array of articles.
+  max_tokens: 2500
+  temperature: 0.7
+  model: sonar
 
 top_stories:
   template: |
@@ -48,25 +158,26 @@ top_stories:
     For each story, include:
     1. A clear headline
     2. A concise summary (2-3 sentences)
-    3. The source (must be a real, reputable news outlet such as The Verge, TechCrunch, Wired, MIT Technology Review, The New York Times, Financial Times, Nature, Science, etc.)
-    4. The actual URL to the original article from the source
+    3. The source (MUST be one of these specific outlets: The Verge, TechCrunch, Wired, MIT Technology Review, The New York Times, Financial Times, Nature, Science, Reuters, Bloomberg, CNBC, Wall Street Journal)
+    4. The URL (MUST be a valid, working URL starting with https:// that links directly to the article on the source's website)
     5. Publication time (in ISO format with timezone)
     6. Category (e.g., AI/ML, Cloud Computing, Cybersecurity, Hardware, Software, Tech Policy, Funding)
     7. Importance score (0-1)
     8. Sentiment score (-1 to 1)
     9. Why it matters (a brief explanation of why this story is significant)
     
-    Important requirements:
-    - Each story must come from a different reputable source
-    - Sources must be real, established news outlets or academic institutions
-    - URLs must be valid and point to actual articles
-    - Focus on the most significant stories from the past 7 days, regardless of exact timing
-    - If you cannot find a reputable source for a story, skip it and select another
+    CRITICAL REQUIREMENTS:
+    - Each story MUST come from a different source from the list above
+    - Each URL MUST be a real, working URL starting with https:// that points to the actual article
+    - DO NOT include any story if you cannot find its actual URL
+    - DO NOT make up or guess URLs
+    - Focus on the most significant stories from the past 7 days
+    - If you cannot find enough stories meeting these requirements, return fewer stories
     
     Format the response as a JSON array of articles. Ensure to include a mix of funding news, research breakthroughs, and general tech news.
   max_tokens: 2500
   temperature: 0.7
-  model: pplx-7b-online
+  model: sonar
 
 news_analysis:
   template: |
@@ -83,4 +194,38 @@ news_analysis:
     {articles_text}
   max_tokens: 2000
   temperature: 0.7
-  model: pplx-7b-online 
+  model: sonar
+
+ai_trends_summary:
+  template: |
+    Provide a concise, executive-level summary of the most critical AI developments from the past week. Focus on what matters for AI leaders, executives, and decision-makers.
+
+    Structure your response as follows:
+
+    **Executive Summary** (2-3 sentences)
+    Brief overview of the most significant AI developments and their business impact.
+
+    **Key Strategic Developments** (3-4 bullet points)
+    - Focus on major company moves, funding, acquisitions, and strategic partnerships
+    - Highlight what this means for competitive positioning
+    - Include specific implications for AI leadership
+
+    **Technology Breakthroughs** (2-3 bullet points)
+    - New models, capabilities, or research that change the game
+    - What this means for product development and innovation
+    - Competitive advantages or threats to consider
+
+    **Market & Regulatory Shifts** (2-3 bullet points)
+    - Policy changes, regulatory developments, or market dynamics
+    - How this affects AI strategy and risk management
+    - Compliance and governance considerations
+
+    **Action Items for AI Leaders** (3-4 bullet points)
+    - Specific recommendations for what to watch, invest in, or prepare for
+    - Strategic decisions to consider
+    - Risk mitigation or opportunity capture strategies
+
+    Keep it concise, actionable, and focused on business impact. Avoid technical jargon. Target 300-400 words total.
+  max_tokens: 1200
+  temperature: 0.7
+  model: sonar 
