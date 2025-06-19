@@ -553,6 +553,395 @@ def display_sentiment_trend(news_data: Dict):
     
     st.plotly_chart(fig, use_container_width=True)
 
+def display_executive_dashboard():
+    """Display executive-focused dashboard with action items and risk matrix"""
+    # Fetch AI trends summary for action items
+    trends_summary = fetch_ai_trends()
+    
+    # Create risk matrix data
+    risk_matrix_data = create_risk_matrix()
+    
+    # Main content in a single column for better scrolling
+    
+    # Executive Summary with Key Metrics
+    st.subheader("📈 Executive Summary")
+    
+    # Get current news data for summary
+    if st.session_state.news_data:
+        total_articles = sum(len(articles) for articles in st.session_state.news_data.values())
+        breaking_count = len(st.session_state.news_data.get('breaking', []))
+        funding_count = len(st.session_state.news_data.get('funding', []))
+        research_count = len(st.session_state.news_data.get('research', []))
+        
+        # Calculate sentiment and importance
+        all_articles = []
+        for category, articles in st.session_state.news_data.items():
+            all_articles.extend(articles)
+        
+        avg_sentiment = 0
+        avg_importance = 0
+        ai_articles_count = 0
+        
+        if all_articles:
+            avg_sentiment = sum(article.get('sentiment_score', 0) for article in all_articles) / len(all_articles)
+            avg_importance = sum(article.get('importance_score', 0) for article in all_articles) / len(all_articles)
+            ai_articles_count = len([a for a in all_articles if 'ai' in a.get('title', '').lower() or 'ai' in a.get('category', '').lower()])
+        
+        # Display metrics in a clean grid
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Articles", total_articles)
+        with col2:
+            st.metric("Breaking News", breaking_count)
+        with col3:
+            st.metric("Funding Events", funding_count)
+        with col4:
+            st.metric("Research Updates", research_count)
+        
+        # Second row of metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            sentiment_color = "normal"
+            if avg_sentiment > 0.3:
+                sentiment_color = "inverse"
+            elif avg_sentiment < -0.3:
+                sentiment_color = "off"
+            st.metric("Market Sentiment", f"{avg_sentiment:.2f}", delta=None, delta_color=sentiment_color)
+        with col2:
+            st.metric("Average Importance", f"{avg_importance:.2f}")
+        with col3:
+            st.metric("AI-Focused Articles", ai_articles_count)
+        with col4:
+            if st.session_state.token_usage:
+                cost = st.session_state.token_usage.get('total_cost', 0)
+                st.metric("API Cost", f"${cost:.4f}")
+    
+    st.markdown("---")
+    
+    # Action Items and Risk Matrix in two columns
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("📋 Strategic Action Items")
+        if trends_summary:
+            # Extract action items from the AI trends summary
+            action_items = extract_action_items(trends_summary)
+            if action_items:
+                for i, item in enumerate(action_items, 1):
+                    st.markdown(f"**{i}.** {item}")
+            else:
+                st.info("No specific action items found. Here are strategic recommendations:")
+                # Fallback to general strategic recommendations
+                strategic_recommendations = [
+                    "Conduct comprehensive AI ethics review and framework implementation",
+                    "Evaluate current AI talent pipeline and identify critical hiring needs",
+                    "Assess regulatory compliance readiness for upcoming AI legislation",
+                    "Review AI investment portfolio and identify new opportunities",
+                    "Develop AI governance structure and decision-making processes"
+                ]
+                for i, rec in enumerate(strategic_recommendations, 1):
+                    st.markdown(f"**{i}.** {rec}")
+        else:
+            st.info("Loading action items from AI trends analysis...")
+            if st.button("🔄 Generate Action Items", key="generate_actions"):
+                st.rerun()
+    
+    with col2:
+        st.subheader("📊 Risk Matrix")
+        display_simplified_risk_matrix(risk_matrix_data)
+    
+    st.markdown("---")
+    
+    # Strategic Insights
+    st.subheader("🔍 Strategic Insights")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**Market Trends**")
+        st.markdown("• AI investment continues to accelerate")
+        st.markdown("• Regulatory landscape evolving rapidly")
+        st.markdown("• Talent competition intensifying")
+        st.markdown("• Open source vs proprietary model debate intensifying")
+        
+    with col2:
+        st.markdown("**Competitive Landscape**")
+        st.markdown("• Major players consolidating")
+        st.markdown("• Startup ecosystem thriving")
+        st.markdown("• International competition growing")
+        st.markdown("• Vertical AI solutions gaining traction")
+    
+    # Refresh button at the bottom
+    st.markdown("---")
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if st.button("🔄 Refresh Dashboard", key="refresh_executive_bottom", help="Update executive dashboard data"):
+            st.rerun()
+    with col2:
+        st.caption("Last updated: " + datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'))
+
+def display_simplified_risk_matrix(risk_data: Dict):
+    """Display simplified 4-quadrant risk matrix with clickable quadrants"""
+    opportunities = risk_data["opportunities"]
+    
+    # Create simplified 4-quadrant matrix
+    matrix_html = """
+    <style>
+    .risk-matrix-4 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 10px;
+        margin: 15px 0;
+        height: 400px;
+    }
+    .quadrant {
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        font-size: 12px;
+        font-weight: bold;
+        color: white;
+        position: relative;
+        cursor: pointer;
+        overflow: hidden;
+        transition: transform 0.2s;
+    }
+    .quadrant:hover {
+        transform: scale(1.02);
+    }
+    .quadrant-header {
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        text-align: center;
+    }
+    .quadrant-content {
+        font-size: 10px;
+        line-height: 1.2;
+        text-align: left;
+        width: 100%;
+        overflow-y: auto;
+        max-height: 280px;
+    }
+    .opportunity-item {
+        margin: 4px 0;
+        padding: 3px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 3px;
+        font-weight: normal;
+    }
+    .low-risk-low-reward { background-color: #666; }
+    .low-risk-high-reward { background-color: #4CAF50; }
+    .high-risk-low-reward { background-color: #F44336; }
+    .high-risk-high-reward { background-color: #FF9800; }
+    .quadrant-count {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: rgba(0,0,0,0.3);
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+    }
+    </style>
+    <div class="risk-matrix-4">
+    """
+    
+    # Define quadrants with proper labels
+    quadrants = [
+        ("low-risk-low-reward", "Low Risk<br>Low Reward", "Low", "Low"),
+        ("low-risk-high-reward", "Low Risk<br>High Reward", "Low", "High"),
+        ("high-risk-low-reward", "High Risk<br>Low Reward", "High", "Low"),
+        ("high-risk-high-reward", "High Risk<br>High Reward", "High", "High")
+    ]
+    
+    for class_name, label, risk_level, reward_level in quadrants:
+        # Get opportunities in this quadrant
+        quadrant_opportunities = [opp for opp in opportunities if opp["risk_level"] == risk_level and opp["reward_level"] == reward_level]
+        count = len(quadrant_opportunities)
+        
+        # Create content for this quadrant
+        content_html = f'<div class="quadrant-header">{label}</div>'
+        if quadrant_opportunities:
+            content_html += '<div class="quadrant-content">'
+            for opp in quadrant_opportunities[:3]:  # Show first 3 opportunities
+                content_html += f'<div class="opportunity-item">• {opp["opportunity"]}</div>'
+            if len(quadrant_opportunities) > 3:
+                content_html += f'<div class="opportunity-item">... and {len(quadrant_opportunities) - 3} more</div>'
+            content_html += '</div>'
+        else:
+            content_html += '<div class="quadrant-content">No opportunities</div>'
+        
+        matrix_html += f'<div class="quadrant {class_name}" onclick="showQuadrantDetails(\'{risk_level}-{reward_level}\')">{content_html}<div class="quadrant-count">{count}</div></div>'
+    
+    matrix_html += "</div>"
+    
+    # Add JavaScript for click handling
+    matrix_html += """
+    <script>
+    function showQuadrantDetails(quadrant) {
+        // This would trigger a Streamlit callback in a real implementation
+        console.log('Clicked quadrant:', quadrant);
+    }
+    </script>
+    """
+    
+    st.markdown(matrix_html, unsafe_allow_html=True)
+
+def extract_action_items(trends_summary: str) -> List[str]:
+    """Extract action items from AI trends summary"""
+    action_items = []
+    
+    # Look for action items section
+    if "Action Items for AI Leaders" in trends_summary:
+        # Extract the action items section
+        start_marker = "Action Items for AI Leaders"
+        end_marker = "**Bottom Line**" if "**Bottom Line**" in trends_summary else None
+        
+        if end_marker:
+            action_section = trends_summary.split(start_marker)[1].split(end_marker)[0]
+        else:
+            action_section = trends_summary.split(start_marker)[1]
+        
+        # Extract bullet points
+        lines = action_section.split('\n')
+        for line in lines:
+            line = line.strip()
+            if line.startswith('-') or line.startswith('•'):
+                # Clean up the action item
+                item = line.lstrip('- ').lstrip('• ').strip()
+                if item and len(item) > 10:  # Ensure it's a meaningful action item
+                    action_items.append(item)
+    
+    return action_items
+
+def create_risk_matrix() -> Dict:
+    """Create dynamic risk matrix data based on current news and trends"""
+    # Base opportunities that are always relevant
+    base_opportunities = [
+        {
+            "opportunity": "Invest in Emerging AI Models",
+            "risk_level": "High",
+            "reward_level": "High",
+            "description": "Early investment in next-gen AI models",
+            "timeframe": "6-12 months",
+            "category": "Technology"
+        },
+        {
+            "opportunity": "Acquire AI Talent",
+            "risk_level": "Medium",
+            "reward_level": "High",
+            "description": "Strategic hiring of AI specialists",
+            "timeframe": "3-6 months",
+            "category": "Talent"
+        },
+        {
+            "opportunity": "Regulatory Compliance",
+            "risk_level": "Low",
+            "reward_level": "Medium",
+            "description": "Proactive compliance with AI regulations",
+            "timeframe": "1-3 months",
+            "category": "Compliance"
+        },
+        {
+            "opportunity": "AI Ethics Framework",
+            "risk_level": "Low",
+            "reward_level": "High",
+            "description": "Implement comprehensive AI ethics",
+            "timeframe": "3-6 months",
+            "category": "Governance"
+        },
+        {
+            "opportunity": "Partnership with AI Startups",
+            "risk_level": "Medium",
+            "reward_level": "Medium",
+            "description": "Strategic partnerships with emerging AI companies",
+            "timeframe": "6-12 months",
+            "category": "Partnerships"
+        }
+    ]
+    
+    # Analyze current news data to add dynamic opportunities
+    dynamic_opportunities = []
+    
+    if st.session_state.news_data:
+        # Analyze breaking news for urgent opportunities
+        breaking_news = st.session_state.news_data.get('breaking', [])
+        if breaking_news:
+            # Look for funding news, acquisitions, or major announcements
+            for article in breaking_news:
+                title = article.get('title', '').lower()
+                if any(keyword in title for keyword in ['funding', 'acquisition', 'merger', 'investment']):
+                    dynamic_opportunities.append({
+                        "opportunity": f"Respond to {article.get('title', 'Market Development')}",
+                        "risk_level": "Medium",
+                        "reward_level": "High",
+                        "description": f"Strategic response to: {article.get('summary', 'Market development')}",
+                        "timeframe": "1-3 months",
+                        "category": "Market Response",
+                        "source": article.get('title', '')
+                    })
+        
+        # Analyze funding news for investment opportunities
+        funding_news = st.session_state.news_data.get('funding', [])
+        if funding_news:
+            for article in funding_news:
+                title = article.get('title', '').lower()
+                if any(keyword in title for keyword in ['startup', 'series', 'funding', 'valuation']):
+                    dynamic_opportunities.append({
+                        "opportunity": f"Evaluate Investment in {article.get('title', 'AI Startup')}",
+                        "risk_level": "High",
+                        "reward_level": "High",
+                        "description": f"Investment opportunity: {article.get('summary', 'Startup funding')}",
+                        "timeframe": "3-6 months",
+                        "category": "Investment",
+                        "source": article.get('title', '')
+                    })
+        
+        # Analyze research news for technology opportunities
+        research_news = st.session_state.news_data.get('research', [])
+        if research_news:
+            for article in research_news:
+                title = article.get('title', '').lower()
+                if any(keyword in title for keyword in ['breakthrough', 'innovation', 'research', 'new model']):
+                    dynamic_opportunities.append({
+                        "opportunity": f"Explore {article.get('title', 'Technology Innovation')}",
+                        "risk_level": "Medium",
+                        "reward_level": "High",
+                        "description": f"Technology opportunity: {article.get('summary', 'Research breakthrough')}",
+                        "timeframe": "6-12 months",
+                        "category": "Technology",
+                        "source": article.get('title', '')
+                    })
+    
+    # Combine base and dynamic opportunities
+    all_opportunities = base_opportunities + dynamic_opportunities[:3]  # Limit dynamic opportunities
+    
+    # Calculate risk/reward distribution
+    risk_counts = {"Low": 0, "Medium": 0, "High": 0}
+    reward_counts = {"Low": 0, "Medium": 0, "High": 0}
+    
+    for opp in all_opportunities:
+        risk_counts[opp["risk_level"]] += 1
+        reward_counts[opp["reward_level"]] += 1
+    
+    return {
+        "opportunities": all_opportunities,
+        "risk_levels": ["Low", "Medium", "High"],
+        "reward_levels": ["Low", "Medium", "High"],
+        "risk_distribution": risk_counts,
+        "reward_distribution": reward_counts,
+        "total_opportunities": len(all_opportunities)
+    }
+
 class LogHandler(logging.Handler):
     def __init__(self, max_logs=1000):
         super().__init__()
@@ -789,18 +1178,21 @@ def main():
         st.rerun()
     
     # Create tabs for all content
-    tab1, tab2, tab3, tab4 = st.tabs(["🤖 Trends", "📰 News Feed", "💰 Tokens", "📊 Logs"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎯 Executive", "🤖 Trends", "📰 News Feed", "💰 Tokens", "📊 Logs"])
     
     with tab1:
-        display_ai_trends_summary()
+        display_executive_dashboard()
     
     with tab2:
-        display_all_articles()
+        display_ai_trends_summary()
     
     with tab3:
-        display_token_usage(st.session_state.token_usage)
+        display_all_articles()
     
     with tab4:
+        display_token_usage(st.session_state.token_usage)
+    
+    with tab5:
         display_logs()
 
 if __name__ == "__main__":
