@@ -129,90 +129,94 @@ def apply_custom_theme():
 def fetch_news(category: str) -> List[Dict]:
     """Fetch news articles for a specific category"""
     try:
-        logger.info(f"Fetching {category} news")
+        logger.info(f"Dashboard: Fetching {category} news from API")
         response = requests.get(f"{API_BASE_URL}/news/{category}")
         response.raise_for_status()
         data = response.json()
         articles = data.get('articles', [])
-        logger.info(f"Successfully fetched {len(articles)} {category} articles")
+        logger.info(f"Dashboard: Successfully fetched {len(articles)} {category} articles")
         return articles
     except requests.exceptions.ConnectionError:
-        logger.error("Could not connect to the API server")
+        logger.error(f"Dashboard: Could not connect to the API server for {category} news")
         return []
     except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTP error occurred: {str(e)}")
+        logger.error(f"Dashboard: HTTP error occurred fetching {category} news: {str(e)}")
         return []
     except Exception as e:
-        logger.error(f"Error fetching {category} news: {str(e)}")
+        logger.error(f"Dashboard: Error fetching {category} news: {str(e)}")
         return []
 
 def fetch_analysis() -> Optional[str]:
     """Fetch news analysis"""
     try:
-        logger.info("Fetching news analysis")
+        logger.info("Dashboard: Fetching news analysis from API")
         response = requests.get(f"{API_BASE_URL}/news/analyze")
         response.raise_for_status()
         data = response.json()
         if 'error' in data:
-            logger.error(f"API returned error: {data['error']}")
+            logger.error(f"Dashboard: API returned error for analysis: {data['error']}")
             return None
         analysis = data.get('analysis')
         if not analysis:
-            logger.warning("No analysis data received")
+            logger.warning("Dashboard: No analysis data received")
             return None
-        logger.info("Successfully fetched news analysis")
+        logger.info("Dashboard: Successfully fetched news analysis")
         return analysis
     except requests.exceptions.ConnectionError:
-        logger.error("Could not connect to the API server")
+        logger.error("Dashboard: Could not connect to the API server for analysis")
         return None
     except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTP error occurred: {str(e)}")
+        logger.error(f"Dashboard: HTTP error occurred fetching analysis: {str(e)}")
         return None
     except Exception as e:
-        logger.error(f"Error fetching analysis: {str(e)}")
+        logger.error(f"Dashboard: Error fetching analysis: {str(e)}")
         return None
 
 def fetch_token_usage() -> Dict:
     """Fetch token usage statistics from the API"""
     try:
+        logger.info("Dashboard: Fetching token usage from API")
         response = requests.get(f"{API_BASE_URL}/usage")
         response.raise_for_status()
-        return response.json()
+        usage_data = response.json()
+        logger.info(f"Dashboard: Successfully fetched token usage - {usage_data.get('total_tokens', 0)} tokens, ${usage_data.get('total_cost', 0):.4f} cost")
+        return usage_data
     except requests.exceptions.ConnectionError:
-        st.error(f"Could not connect to API server at {API_BASE_URL}. Is the server running?")
+        logger.error(f"Dashboard: Could not connect to API server at {API_BASE_URL} for token usage")
         return None
     except requests.exceptions.HTTPError as e:
-        st.error(f"HTTP error occurred: {str(e)}")
+        logger.error(f"Dashboard: HTTP error occurred fetching token usage: {str(e)}")
         return None
     except Exception as e:
-        st.error(f"Error fetching token usage: {str(e)}")
+        logger.error(f"Dashboard: Error fetching token usage: {str(e)}")
         return None
 
 def fetch_ai_trends() -> Optional[str]:
     """Fetch AI trends summary from the API"""
     try:
-        logger.info("Fetching AI trends summary")
+        logger.info("Dashboard: Fetching AI trends summary from API")
         response = requests.get(f"{API_BASE_URL}/ai-trends")
         response.raise_for_status()
         data = response.json()
         summary = data.get('summary')
         if not summary:
-            logger.warning("No AI trends summary received")
+            logger.warning("Dashboard: No AI trends summary received")
             return None
-        logger.info("Successfully fetched AI trends summary")
+        logger.info("Dashboard: Successfully fetched AI trends summary")
         return summary
     except requests.exceptions.ConnectionError:
-        logger.error("Could not connect to the API server")
+        logger.error("Dashboard: Could not connect to the API server for AI trends")
         return None
     except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTP error occurred: {str(e)}")
+        logger.error(f"Dashboard: HTTP error occurred fetching AI trends: {str(e)}")
         return None
     except Exception as e:
-        logger.error(f"Error fetching AI trends: {str(e)}")
+        logger.error(f"Dashboard: Error fetching AI trends: {str(e)}")
         return None
 
 def initialize_session_state():
     """Initialize session state variables"""
+    logger.info("Dashboard: Initializing session state")
     if 'last_update' not in st.session_state:
         st.session_state.last_update = datetime.now(timezone.utc)
     if 'next_update' not in st.session_state:
@@ -229,6 +233,7 @@ def initialize_session_state():
         st.session_state.token_usage = fetch_token_usage()
     if 'last_log_update' not in st.session_state:
         st.session_state.last_log_update = datetime.now(timezone.utc)
+    logger.info("Dashboard: Session state initialized successfully")
 
 def check_for_updates():
     """Check if it's time to update the data"""
@@ -237,10 +242,11 @@ def check_for_updates():
     # Ensure next_update is set
     if not st.session_state.next_update:
         st.session_state.next_update = current_time + timedelta(seconds=st.session_state.update_interval)
+        logger.info("Dashboard: Next update time initialized")
         return False
         
     if current_time >= st.session_state.next_update:
-        logger.info("Scheduled update triggered")
+        logger.info("Dashboard: Scheduled update triggered")
         news_data = {}
         for category in ['breaking', 'top', 'funding', 'research']:
             articles = fetch_news(category)
@@ -255,6 +261,7 @@ def check_for_updates():
             # Also refresh token usage periodically
             refresh_token_usage()
             
+            logger.info(f"Dashboard: Scheduled update completed - {sum(len(articles) for articles in news_data.values())} total articles")
             return True
     return False
 
@@ -448,12 +455,14 @@ def process_reference_links(text: str) -> str:
 def refresh_token_usage():
     """Refresh token usage data"""
     try:
+        logger.info("Dashboard: Refreshing token usage data")
         new_usage = fetch_token_usage()
         if new_usage:
             st.session_state.token_usage = new_usage
+            logger.info("Dashboard: Token usage refreshed successfully")
             return True
     except Exception as e:
-        logger.error(f"Error refreshing token usage: {str(e)}")
+        logger.error(f"Dashboard: Error refreshing token usage: {str(e)}")
     return False
 
 def display_all_articles():
@@ -588,8 +597,26 @@ def fetch_logs() -> List[str]:
     return logs
 
 def display_logs():
-    """Display logs in a streaming format"""
-    st.subheader("Application Logs")
+    """Display logs in a streaming format with comprehensive filtering"""
+    st.subheader("📊 System Logs & Activity")
+    
+    # Create filters for log types
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        log_level = st.selectbox(
+            "Log Level",
+            ["ALL", "DEBUG", "INFO", "WARNING", "ERROR"],
+            key="log_level_filter"
+        )
+    with col2:
+        log_source = st.selectbox(
+            "Source",
+            ["ALL", "API", "PerplexityAgent", "Newsroom", "BreakingNewsAgent", "TopStoriesAgent", "FundingAgent", "ResearchAgent", "Dashboard"],
+            key="log_source_filter"
+        )
+    with col3:
+        if st.button("🔄 Refresh Logs", key="refresh_logs"):
+            st.rerun()
     
     # Create a container for logs
     log_container = st.empty()
@@ -599,21 +626,110 @@ def display_logs():
         new_logs = fetch_logs()
         if new_logs:
             st.session_state.logs.extend(new_logs)
-            # Keep only the last 1000 logs
-            if len(st.session_state.logs) > 1000:
-                st.session_state.logs = st.session_state.logs[-1000:]
+            # Keep only the last 2000 logs
+            if len(st.session_state.logs) > 2000:
+                st.session_state.logs = st.session_state.logs[-2000:]
             st.session_state.last_log_update = datetime.now(timezone.utc)
     except Exception as e:
         logger.error(f"Error updating logs: {str(e)}")
     
-    # Display current logs
-    log_container.code("\n".join(st.session_state.logs), language="text")
+    # Filter logs based on user selection
+    filtered_logs = []
+    for log in st.session_state.logs:
+        # Apply level filter
+        if log_level != "ALL":
+            if f" - {log_level} - " not in log:
+                continue
+        
+        # Apply source filter
+        if log_source != "ALL":
+            if log_source not in log:
+                continue
+        
+        filtered_logs.append(log)
+    
+    # Display log statistics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Logs", len(st.session_state.logs))
+    with col2:
+        st.metric("Filtered Logs", len(filtered_logs))
+    with col3:
+        api_calls = len([log for log in st.session_state.logs if "API Call:" in log])
+        st.metric("API Calls", api_calls)
+    with col4:
+        errors = len([log for log in st.session_state.logs if "ERROR" in log])
+        st.metric("Errors", errors)
+    
+    # Display current logs with syntax highlighting
+    if filtered_logs:
+        # Create a more readable format
+        formatted_logs = []
+        for log in filtered_logs[-100:]:  # Show last 100 filtered logs
+            # Color code different log levels
+            if "ERROR" in log:
+                formatted_logs.append(f"🔴 {log}")
+            elif "WARNING" in log:
+                formatted_logs.append(f"🟡 {log}")
+            elif "INFO" in log:
+                formatted_logs.append(f"🔵 {log}")
+            elif "DEBUG" in log:
+                formatted_logs.append(f"⚪ {log}")
+            else:
+                formatted_logs.append(log)
+        
+        log_container.code("\n".join(formatted_logs), language="text")
+    else:
+        log_container.info("No logs match the current filters.")
     
     # Add a clear logs button
-    if st.button("Clear Logs"):
-        st.session_state.logs = []
-        log_container.code("", language="text")
-        logger.info("Logs cleared")
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if st.button("🗑️ Clear Logs"):
+            st.session_state.logs = []
+            log_container.code("", language="text")
+            logger.info("Logs cleared by user")
+    with col2:
+        st.caption("Last updated: " + datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'))
+    
+    # Show recent activity summary
+    st.subheader("📈 Recent Activity Summary")
+    
+    # Get recent logs for summary
+    recent_logs = st.session_state.logs[-50:] if st.session_state.logs else []
+    
+    # Count different types of activities
+    api_calls = [log for log in recent_logs if "API Call:" in log]
+    agent_actions = [log for log in recent_logs if "PerplexityAgent:" in log or "Newsroom:" in log]
+    errors = [log for log in recent_logs if "ERROR" in log]
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Recent API Calls", len(api_calls))
+        if api_calls:
+            st.caption("Last: " + api_calls[-1].split(" - ")[0] if api_calls else "")
+    with col2:
+        st.metric("Agent Actions", len(agent_actions))
+        if agent_actions:
+            st.caption("Last: " + agent_actions[-1].split(" - ")[0] if agent_actions else "")
+    with col3:
+        st.metric("Recent Errors", len(errors))
+        if errors:
+            st.caption("Last: " + errors[-1].split(" - ")[0] if errors else "")
+    
+    # Show recent API calls in a table
+    if api_calls:
+        st.subheader("🔄 Recent API Calls")
+        api_data = []
+        for log in api_calls[-10:]:  # Last 10 API calls
+            parts = log.split(" - ")
+            if len(parts) >= 3:
+                timestamp = parts[0]
+                endpoint = parts[2] if len(parts) > 2 else "Unknown"
+                api_data.append({"Timestamp": timestamp, "Endpoint": endpoint})
+        
+        if api_data:
+            st.dataframe(api_data, use_container_width=True)
 
 def main():
     st.set_page_config(

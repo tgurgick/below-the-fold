@@ -3,10 +3,14 @@ from dotenv import load_dotenv
 import logging
 from datetime import datetime, timezone
 
-# Configure logging first
+# Configure comprehensive logging first
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('app.log', mode='a')
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -71,16 +75,16 @@ async def root():
 async def get_breaking_news():
     """Get the latest breaking news from the last 24 hours"""
     try:
-        logger.info("API Call: GET /news/breaking")
+        logger.info("API Call: GET /news/breaking - Starting breaking news fetch")
         articles = await newsroom.breaking_news.fetch_news()
-        logger.info(f"Successfully fetched {len(articles)} breaking news articles")
+        logger.info(f"API Call: GET /news/breaking - Successfully fetched {len(articles)} breaking news articles")
         return NewsResponse(
             articles=articles,
             total_articles=len(articles),
             timestamp=datetime.now(timezone.utc)
         )
     except Exception as e:
-        logger.error(f"Error fetching breaking news: {str(e)}", exc_info=True)
+        logger.error(f"API Call: GET /news/breaking - Error fetching breaking news: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error fetching breaking news: {str(e)}"
@@ -90,16 +94,16 @@ async def get_breaking_news():
 async def get_top_stories():
     """Get the most significant stories from the last 7 days"""
     try:
-        logger.info("API Call: GET /news/top")
+        logger.info("API Call: GET /news/top - Starting top stories fetch")
         articles = await newsroom.top_stories.fetch_news()
-        logger.info(f"Successfully fetched {len(articles)} top stories")
+        logger.info(f"API Call: GET /news/top - Successfully fetched {len(articles)} top stories")
         return NewsResponse(
             articles=articles,
             total_articles=len(articles),
             timestamp=datetime.now(timezone.utc)
         )
     except Exception as e:
-        logger.error(f"Error fetching top stories: {str(e)}", exc_info=True)
+        logger.error(f"API Call: GET /news/top - Error fetching top stories: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error fetching top stories: {str(e)}"
@@ -109,16 +113,16 @@ async def get_top_stories():
 async def get_funding_news():
     """Get the latest funding and M&A news"""
     try:
-        logger.info("API Call: GET /news/funding")
+        logger.info("API Call: GET /news/funding - Starting funding news fetch")
         articles = await newsroom.funding.fetch_news()
-        logger.info(f"Successfully fetched {len(articles)} funding news articles")
+        logger.info(f"API Call: GET /news/funding - Successfully fetched {len(articles)} funding news articles")
         return NewsResponse(
             articles=articles,
             total_articles=len(articles),
             timestamp=datetime.now(timezone.utc)
         )
     except Exception as e:
-        logger.error(f"Error fetching funding news: {str(e)}", exc_info=True)
+        logger.error(f"API Call: GET /news/funding - Error fetching funding news: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error fetching funding news: {str(e)}"
@@ -128,16 +132,16 @@ async def get_funding_news():
 async def get_research_news():
     """Get the latest research and technical breakthroughs"""
     try:
-        logger.info("API Call: GET /news/research")
+        logger.info("API Call: GET /news/research - Starting research news fetch")
         articles = await newsroom.research.fetch_news()
-        logger.info(f"Successfully fetched {len(articles)} research news articles")
+        logger.info(f"API Call: GET /news/research - Successfully fetched {len(articles)} research news articles")
         return NewsResponse(
             articles=articles,
             total_articles=len(articles),
             timestamp=datetime.now(timezone.utc)
         )
     except Exception as e:
-        logger.error(f"Error fetching research news: {str(e)}", exc_info=True)
+        logger.error(f"API Call: GET /news/research - Error fetching research news: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error fetching research news: {str(e)}"
@@ -147,15 +151,19 @@ async def get_research_news():
 async def get_all_news():
     """Get all news categories in one request"""
     try:
-        logger.info("API Call: GET /news/all")
+        logger.info("API Call: GET /news/all - Starting comprehensive news fetch")
         if newsroom.needs_update():
+            logger.info("API Call: GET /news/all - Newsroom needs update, fetching fresh data")
             news_data = await newsroom.update_all()
         else:
+            logger.info("API Call: GET /news/all - Using cached news data")
             news_data = newsroom.get_cached_news()
-        logger.info("Successfully fetched all news categories")
+        
+        total_articles = sum(len(articles) for articles in news_data.values())
+        logger.info(f"API Call: GET /news/all - Successfully fetched {total_articles} total articles across all categories")
         return news_data
     except Exception as e:
-        logger.error(f"Error fetching all news: {str(e)}", exc_info=True)
+        logger.error(f"API Call: GET /news/all - Error fetching all news: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error fetching news: {str(e)}"
@@ -165,9 +173,10 @@ async def get_all_news():
 async def analyze_news():
     """Get an analysis of current news trends and patterns"""
     try:
-        logger.info("API Call: GET /news/analyze")
+        logger.info("API Call: GET /news/analyze - Starting news analysis")
         news_data = await newsroom.update_all()
         if not news_data:
+            logger.warning("API Call: GET /news/analyze - No news data available for analysis")
             return {
                 "analysis": "Unable to generate analysis at this time. Please try again later.",
                 "error": "Failed to fetch news data"
@@ -179,17 +188,18 @@ async def analyze_news():
             all_articles.extend(category)
             
         if not all_articles:
+            logger.warning("API Call: GET /news/analyze - No articles found for analysis")
             return {
                 "analysis": "No news articles available for analysis at this time.",
                 "error": "No articles found"
             }
             
-        logger.info(f"Analyzing {len(all_articles)} articles")
+        logger.info(f"API Call: GET /news/analyze - Analyzing {len(all_articles)} articles")
         analysis = await perplexity_agent.analyze_news_trends(all_articles)
-        logger.info("Successfully generated news analysis")
+        logger.info("API Call: GET /news/analyze - Successfully generated news analysis")
         return {"analysis": analysis}
     except Exception as e:
-        logger.error(f"Error analyzing news: {str(e)}", exc_info=True)
+        logger.error(f"API Call: GET /news/analyze - Error analyzing news: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error analyzing news: {str(e)}"
@@ -199,12 +209,12 @@ async def analyze_news():
 async def get_token_usage():
     """Get token usage statistics"""
     try:
-        logger.info("API Call: GET /usage")
+        logger.info("API Call: GET /usage - Fetching token usage statistics")
         usage = perplexity_agent.get_token_usage()
-        logger.info(f"Successfully fetched token usage: {usage['total_tokens']} tokens, ${usage['total_cost']:.4f} cost")
+        logger.info(f"API Call: GET /usage - Successfully fetched token usage: {usage['total_tokens']} tokens, ${usage['total_cost']:.4f} cost")
         return usage
     except Exception as e:
-        logger.error(f"Error fetching token usage: {str(e)}", exc_info=True)
+        logger.error(f"API Call: GET /usage - Error fetching token usage: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error fetching token usage: {str(e)}"
@@ -214,12 +224,12 @@ async def get_token_usage():
 async def get_ai_trends_summary():
     """Get AI trends summary for the past week"""
     try:
-        logger.info("API Call: GET /ai-trends")
+        logger.info("API Call: GET /ai-trends - Starting AI trends summary generation")
         summary = await perplexity_agent.generate_ai_trends_summary()
-        logger.info("Successfully generated AI trends summary")
+        logger.info("API Call: GET /ai-trends - Successfully generated AI trends summary")
         return {"summary": summary}
     except Exception as e:
-        logger.error(f"Error generating AI trends summary: {str(e)}", exc_info=True)
+        logger.error(f"API Call: GET /ai-trends - Error generating AI trends summary: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error generating AI trends summary: {str(e)}"
