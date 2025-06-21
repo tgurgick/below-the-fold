@@ -1,16 +1,18 @@
 # Below the Fold - Tech News Dashboard
 
-A real-time dashboard for tracking and analyzing technology and AI news using the Perplexity API. Built with FastAPI backend and Streamlit frontend, featuring AI-powered news aggregation, sentiment analysis, and executive-level insights.
+A real-time dashboard for tracking and analyzing technology and AI news using the Perplexity API. Built with FastAPI backend and Streamlit frontend, featuring AI-powered news aggregation, sentiment analysis, and executive-level insights with intelligent citation management.
 
 ## Features
 
 - **Real-time tech news aggregation** from multiple categories
 - **AI-powered news analysis** using Perplexity's Sonar model
 - **Executive-level AI trends summaries** for business leaders
+- **Strategic action items** with source citations
 - **Sentiment analysis and trend tracking**
 - **Token usage monitoring** with accurate cost tracking
 - **Interactive visualizations** and dark mode UI
 - **Structured news categorization** (Breaking, Top Stories, Funding, Research)
+- **Intelligent citation system** with clickable source links
 
 ## System Architecture
 
@@ -18,10 +20,10 @@ A real-time dashboard for tracking and analyzing technology and AI news using th
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Streamlit     │    │   FastAPI        │    │   Perplexity    │
-│   Dashboard     │◄──►│   Backend        │◄──►│   API (Sonar)   │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-         │                       │                       │
+│   Streamlit     │    ┌──────────────────┐    │   Perplexity    │
+│   Dashboard     │◄──►│   FastAPI        │◄──►│   API (Sonar)   │
+└─────────────────┘    │   Backend        │    └─────────────────┘
+         │              └──────────────────┘             │
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
@@ -30,42 +32,93 @@ A real-time dashboard for tracking and analyzing technology and AI news using th
 └─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
 
-### Agent Hierarchy
+### Agent Hierarchy & Collaboration
 
-1. **PerplexityAgent** - Core AI interface
-   - Handles all API calls to Perplexity's Sonar model
-   - Manages token usage tracking and cost calculation
-   - Processes structured JSON responses
-   - Validates news article data
+#### 1. **PerplexityAgent** - Core AI Interface
+- **Role**: Primary interface to Perplexity's Sonar model
+- **Responsibilities**:
+  - Handles all API calls to Perplexity's Sonar model
+  - Manages token usage tracking and cost calculation
+  - Processes structured JSON responses
+  - Validates news article data
+  - Generates executive action items with citations
+- **Key Methods**:
+  - `get_news()`: Fetches categorized news with analysis
+  - `get_ai_trends_summary()`: Generates executive insights
+  - `get_executive_action_items()`: Creates strategic action items
+  - `_calculate_tokens()`: Tracks usage and costs
 
-2. **Newsroom** - Orchestration layer
-   - Coordinates multiple specialized news agents
-   - Manages caching and update scheduling
-   - Handles parallel news fetching
+#### 2. **Newsroom** - Orchestration Layer
+- **Role**: Coordinates multiple specialized news agents
+- **Responsibilities**:
+  - Manages caching and update scheduling
+  - Handles parallel news fetching
+  - Routes requests to appropriate specialized agents
+  - Ensures data consistency across agents
+- **Collaboration**: Works with all specialized agents to provide unified news access
 
-3. **Specialized News Agents**:
-   - **BreakingNewsAgent**: Latest urgent developments (24h)
-   - **TopStoriesAgent**: Most significant stories (7 days)
-   - **FundingAgent**: M&A, funding rounds, financial news
-   - **ResearchAgent**: Technical breakthroughs and research
+#### 3. **Specialized News Agents** - Domain Experts
+Each agent is optimized for specific news categories and collaborates with PerplexityAgent:
 
-4. **TokenCalculator** - Usage tracking
-   - Monitors API costs with Sonar model pricing
-   - Tracks token usage history
-   - Provides cost analytics
+- **BreakingNewsAgent**: Latest urgent developments (24h)
+  - Focuses on time-sensitive, high-impact news
+  - Uses specialized prompts for urgency detection
+  
+- **TopStoriesAgent**: Most significant stories (7 days)
+  - Curates stories with lasting impact
+  - Prioritizes industry-shaping developments
+  
+- **FundingAgent**: M&A, funding rounds, financial news
+  - Tracks financial movements and market changes
+  - Analyzes investment trends and valuations
+  
+- **ResearchAgent**: Technical breakthroughs and research
+  - Monitors scientific and technical innovations
+  - Focuses on breakthrough technologies
 
-### Data Flow
+#### 4. **TokenCalculator** - Usage Tracking
+- **Role**: Monitors and analyzes API usage
+- **Responsibilities**:
+  - Tracks token consumption with Sonar model pricing
+  - Provides cost analytics and usage history
+  - Helps optimize API usage efficiency
+
+### Data Flow & Agent Collaboration
 
 ```
 1. User Request → Dashboard
 2. Dashboard → FastAPI Endpoint
 3. FastAPI → Newsroom Coordinator
-4. Newsroom → Specialized Agents
-5. Agents → PerplexityAgent
+4. Newsroom → Specialized Agents (parallel execution)
+5. Specialized Agents → PerplexityAgent
 6. PerplexityAgent → Perplexity API (Sonar)
 7. Response flows back through the chain
 8. Data is processed, validated, and displayed
 ```
+
+### Citation System Architecture
+
+The system implements an intelligent citation management system:
+
+#### Citation Processing Flow
+```
+1. PerplexityAgent generates content with citations
+2. Citation extraction function parses Perplexity-style citations
+3. URLs are extracted and validated
+4. Reference numbers become clickable links
+5. Links open source URLs in new tabs
+```
+
+#### Citation Format
+- **Input**: Perplexity-style citations `[1] Source Name - Title (URL)`
+- **Output**: Clickable reference numbers linking to source URLs
+- **Display**: Clean, professional formatting without citation sections
+
+#### Citation Integration
+- **Trends Tab**: Executive summaries with source citations
+- **Executive Tab**: Strategic action items with verified sources
+- **News Feed**: Articles with source attribution
+- **Risk Matrix**: Risk assessments with supporting sources
 
 ## Model Configuration
 
@@ -73,15 +126,17 @@ A real-time dashboard for tracking and analyzing technology and AI news using th
 - **Model**: `sonar` (Perplexity's latest and most capable model)
 - **Cost**: $0.0003 per 1K tokens (input + output)
 - **Capabilities**: Advanced reasoning, structured output, executive analysis
-- **Use Cases**: News aggregation, trend analysis, AI insights
+- **Use Cases**: News aggregation, trend analysis, AI insights, citation generation
 
 ### Prompt Engineering
 The system uses carefully crafted prompts for different news categories:
+
 - **Breaking News**: Urgent, time-sensitive developments
 - **Top Stories**: Most significant stories from the past week
 - **Funding News**: M&A, funding rounds, financial developments
 - **Research News**: Technical breakthroughs and innovations
-- **AI Trends Summary**: Executive-level insights for business leaders
+- **AI Trends Summary**: Executive-level insights with citations
+- **Executive Action Items**: Strategic recommendations with source verification
 
 ## Setup
 
@@ -132,6 +187,7 @@ The dashboard will be available at `http://localhost:8501`
 ### Analysis Endpoints
 - `GET /news/analyze` - News trend analysis
 - `GET /ai-trends` - Executive AI trends summary
+- `GET /executive-action-items` - Strategic action items with citations
 
 ### Utility Endpoints
 - `GET /usage` - Token usage and cost statistics
@@ -162,28 +218,58 @@ below-the-fold/
 ## Key Components
 
 ### PerplexityAgent
-- Handles all Perplexity API interactions
-- Uses Sonar model for optimal performance
-- Manages structured JSON parsing and validation
-- Tracks token usage and costs
+- **Core Functionality**: Handles all Perplexity API interactions
+- **Model Usage**: Uses Sonar model for optimal performance
+- **Data Processing**: Manages structured JSON parsing and validation
+- **Usage Tracking**: Tracks token usage and costs
+- **Citation Management**: Generates and processes source citations
+- **Executive Insights**: Creates strategic action items and trends summaries
 
 ### Newsroom
-- Coordinates multiple news agents
-- Manages caching and update scheduling
-- Handles parallel news fetching for efficiency
+- **Coordination**: Manages multiple news agents efficiently
+- **Caching**: Implements intelligent caching for performance
+- **Scheduling**: Handles update scheduling and parallel fetching
+- **Data Flow**: Ensures consistent data across all agents
 
 ### Specialized Agents
-Each agent is optimized for specific news categories:
-- **BreakingNewsAgent**: Real-time urgent developments
-- **TopStoriesAgent**: Curated significant stories
-- **FundingAgent**: Financial and M&A news
-- **ResearchAgent**: Technical innovations
+Each agent collaborates with PerplexityAgent and is optimized for specific news categories:
+
+- **BreakingNewsAgent**: Real-time urgent developments with immediate impact
+- **TopStoriesAgent**: Curated significant stories with lasting importance
+- **FundingAgent**: Financial and M&A news with market analysis
+- **ResearchAgent**: Technical innovations and breakthrough technologies
 
 ### Dashboard Features
-- **Trends Tab**: Executive AI insights and summaries
-- **News Feed**: Categorized news articles with analysis
+- **Trends Tab**: Executive AI insights with source citations
+- **Executive Tab**: Strategic action items with verified sources
+- **News Feed**: Categorized news articles with analysis and citations
 - **Tokens Tab**: Usage monitoring and cost tracking
 - **Logs Tab**: Real-time application logs
+
+## Agent Collaboration Patterns
+
+### 1. **Sequential Processing**
+- Newsroom → Specialized Agent → PerplexityAgent → API
+- Ensures proper data flow and error handling
+
+### 2. **Parallel Execution**
+- Multiple specialized agents can run simultaneously
+- Newsroom coordinates parallel requests for efficiency
+
+### 3. **Data Validation Chain**
+- Each agent validates data before passing to next
+- PerplexityAgent ensures API response quality
+- Dashboard validates final display data
+
+### 4. **Citation Integration**
+- PerplexityAgent generates citations in content
+- Citation extraction processes and validates URLs
+- Dashboard displays clickable source links
+
+### 5. **Error Handling**
+- Each agent implements proper error handling
+- Failures are gracefully handled and logged
+- System remains functional even if individual agents fail
 
 ## Contributing
 
