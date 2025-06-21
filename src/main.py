@@ -235,6 +235,21 @@ async def get_ai_trends_summary():
             detail=f"Error generating AI trends summary: {str(e)}"
         )
 
+@app.get("/executive-action-items")
+async def get_executive_action_items():
+    """Get executive action items with citations"""
+    try:
+        logger.info("API Call: GET /executive-action-items - Starting executive action items generation")
+        action_items = await perplexity_agent.generate_executive_action_items()
+        logger.info("API Call: GET /executive-action-items - Successfully generated executive action items")
+        return {"action_items": action_items}
+    except Exception as e:
+        logger.error(f"API Call: GET /executive-action-items - Error generating executive action items: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating executive action items: {str(e)}"
+        )
+
 if __name__ == "__main__":
     logger.info("Starting FastAPI server")
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 

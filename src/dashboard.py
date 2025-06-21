@@ -13,6 +13,7 @@ import sys
 from queue import Queue
 import os
 import re
+import unicodedata
 
 # Configure logging
 logging.basicConfig(
@@ -192,26 +193,29 @@ def fetch_token_usage() -> Dict:
         return None
 
 def fetch_ai_trends() -> Optional[str]:
-    """Fetch AI trends summary from the API"""
+    """Fetch AI trends summary from API"""
     try:
-        logger.info("Dashboard: Fetching AI trends summary from API")
-        response = requests.get(f"{API_BASE_URL}/ai-trends")
-        response.raise_for_status()
-        data = response.json()
-        summary = data.get('summary')
-        if not summary:
-            logger.warning("Dashboard: No AI trends summary received")
+        response = requests.get("http://localhost:8000/ai-trends")
+        if response.status_code == 200:
+            return response.json().get("summary", "")
+        else:
+            st.error(f"Failed to fetch AI trends: {response.status_code}")
             return None
-        logger.info("Dashboard: Successfully fetched AI trends summary")
-        return summary
-    except requests.exceptions.ConnectionError:
-        logger.error("Dashboard: Could not connect to the API server for AI trends")
-        return None
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"Dashboard: HTTP error occurred fetching AI trends: {str(e)}")
-        return None
     except Exception as e:
-        logger.error(f"Dashboard: Error fetching AI trends: {str(e)}")
+        st.error(f"Error fetching AI trends: {str(e)}")
+        return None
+
+def fetch_executive_action_items():
+    """Fetch executive action items from API"""
+    try:
+        response = requests.get("http://localhost:8000/executive-action-items")
+        if response.status_code == 200:
+            return response.json().get("action_items", "")
+        else:
+            st.error(f"Failed to fetch executive action items: {response.status_code}")
+            return None
+    except Exception as e:
+        st.error(f"Error fetching executive action items: {str(e)}")
         return None
 
 def initialize_session_state():
@@ -402,18 +406,148 @@ def display_news_articles(articles: List[Dict], category: str):
                     sentiment_color = "off"
                 st.metric("Sentiment", f"{sentiment:.2f}", delta=None, delta_color=sentiment_color)
 
+def clean_ai_text(text: str) -> str:
+    """Clean AI-generated text to remove character spacing issues"""
+    # Normalize Unicode characters to fix spacing issues
+    text = unicodedata.normalize('NFKC', text)
+    
+    # Remove zero-width characters that might be causing spacing issues
+    text = ''.join(char for char in text if not unicodedata.category(char).startswith('Cf'))
+    
+    return text
+
+def extract_citations_and_make_links(text: str) -> str:
+    """Extract citations from AI trends summary and make reference numbers clickable to URLs"""
+    # First clean the text to remove character spacing issues
+    text = clean_ai_text(text)
+    
+    # Pattern to match citations like [1] Source Name - Title (URL)
+    citation_pattern = r'\[(\d+)\]\s*([^(]+?)\s*-\s*([^(]+?)\s*\(([^)]+)\)'
+    
+    # Extract all citations and their URLs
+    citations = {}
+    matches = re.findall(citation_pattern, text)
+    
+    # Debug: Log what we found
+    logger.debug(f"Found {len(matches)} citation matches")
+    
+    # If no matches found, try alternative patterns
+    if not matches:
+        # Try pattern without dashes: [1] Source Name Title (URL)
+        alt_pattern = r'\[(\d+)\]\s*([^(]+?)\s*\(([^)]+)\)'
+        matches = re.findall(alt_pattern, text)
+        logger.debug(f"Found {len(matches)} alternative citation matches")
+    
+    for match in matches:
+        if len(match) == 4:  # Original pattern
+            ref_num, source_name, title, url = match
+        elif len(match) == 3:  # Alternative pattern
+            ref_num, source_title, url = match
+        else:
+            continue
+            
+        # Clean up the URL
+        url = url.strip()
+        
+        # Debug: Log the URL we're processing
+        logger.debug(f"Processing citation [{ref_num}]: {url}")
+        
+        # Validate URL - skip malformed URLs
+        if url.startswith('@') or not url.startswith(('http://', 'https://')):
+            # Skip this citation if URL is malformed
+            logger.debug(f"Skipping malformed URL for citation [{ref_num}]: {url}")
+            continue
+            
+        citations[ref_num] = url
+    
+    # Debug: Log final citations
+    logger.debug(f"Final citations: {citations}")
+    
+    # Remove the citations section from the text (everything after "**Citations**" or "Citations:")
+    if "**Citations**" in text:
+        text = text.split("**Citations**")[0].strip()
+    elif "Citations:" in text:
+        text = text.split("Citations:")[0].strip()
+    
+    # Now replace reference numbers with clickable links to actual URLs
+    pattern = r'\[(\d+)\]'
+    
+    def replace_reference(match):
+        ref_num = match.group(1)
+        url = citations.get(ref_num)
+        if url:
+            # Create a link to the actual source URL
+            return f'<a href="{url}" target="_blank" style="color: #00ACB5; text-decoration: underline; font-weight: bold;">[{ref_num}]</a>'
+        else:
+            # No URL found - show as simple styled reference
+            logger.debug(f"No URL found for citation [{ref_num}], showing as styled text")
+            return f'<span style="color: #00ACB5; font-weight: bold;">[{ref_num}]</span>'
+    
+    processed_text = re.sub(pattern, replace_reference, text)
+    return processed_text
+
 def display_ai_trends_summary():
     """Display AI trends summary"""
     st.subheader("🤖 AI Trends Summary")
     st.markdown("*Executive insights for AI leaders and decision-makers*")
     
+    # Add CSS to normalize font styles without breaking character spacing
+    st.markdown("""
+        <style>
+        /* Override Streamlit's markdown styling for consistent appearance */
+        .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
+        .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+            font-size: 1.1rem !important;
+            font-weight: bold !important;
+            color: #FAFAFA !important;
+            margin: 0.5rem 0 !important;
+        }
+        
+        .stMarkdown p {
+            font-size: 0.9rem !important;
+            line-height: 1.4 !important;
+            color: #FAFAFA !important;
+            font-style: normal !important;
+            font-weight: normal !important;
+        }
+        
+        .stMarkdown strong, .stMarkdown b {
+            font-weight: bold !important;
+            color: #FAFAFA !important;
+        }
+        
+        .stMarkdown em, .stMarkdown i {
+            font-style: italic !important;
+            color: #FAFAFA !important;
+        }
+        
+        .stMarkdown ul, .stMarkdown ol {
+            margin: 0.5rem 0 !important;
+            padding-left: 1.5rem !important;
+        }
+        
+        .stMarkdown li {
+            font-size: 0.9rem !important;
+            line-height: 1.4 !important;
+            color: #FAFAFA !important;
+            margin: 0.2rem 0 !important;
+        }
+        
+        .stMarkdown a {
+            color: #00ACB5 !important;
+            text-decoration: underline !important;
+            font-weight: bold !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
     # Fetch AI trends summary
     trends_summary = fetch_ai_trends()
     if trends_summary:
-        # Process reference links to make them clickable
-        processed_summary = process_reference_links(trends_summary)
+        # Process text to extract citations and make reference numbers clickable
+        processed_summary = extract_citations_and_make_links(trends_summary)
         
-        # Display the structured summary with proper markdown and HTML rendering
+        # Render as markdown to handle headers properly
         st.markdown(processed_summary, unsafe_allow_html=True)
         
         # Add a refresh button for trends
@@ -434,21 +568,26 @@ def process_reference_links(text: str) -> str:
     
     def replace_reference(match):
         ref_num = match.group(1)
-        # Create a clickable link with tooltip
-        return f'<a href="#ref-{ref_num}" style="color: #00ACB5; text-decoration: none; font-weight: bold;" title="Click to view reference {ref_num}">[{ref_num}]</a>'
+        # Create a clickable link with better styling and tooltip
+        return f'<a href="#ref-{ref_num}" style="color: #00ACB5; text-decoration: none; font-weight: bold; background-color: rgba(0, 172, 181, 0.1); padding: 2px 4px; border-radius: 3px; border: 1px solid #00ACB5;" title="Click to view reference {ref_num}">[{ref_num}]</a>'
     
     # Replace all reference numbers with clickable links
     processed_text = re.sub(pattern, replace_reference, text)
     
-    # Add a references section at the end if there are any references
-    references = re.findall(pattern, text)
-    if references:
-        processed_text += "\n\n---\n\n**📚 References:**\n"
-        for ref_num in sorted(set(references), key=int):
-            processed_text += f'<div id="ref-{ref_num}" style="margin: 10px 0; padding: 15px; background-color: #1E1E1E; border-radius: 8px; border-left: 4px solid #00ACB5; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">'
-            processed_text += f'<strong style="color: #00ACB5;">[{ref_num}]</strong> - <em>Reference {ref_num}</em><br>'
-            processed_text += f'<small style="color: #A0A0A0; display: block; margin-top: 5px;">📖 Click the numbered link above to view this reference in context</small>'
-            processed_text += '</div>\n'
+    return processed_text
+
+def process_reference_links_simple(text: str) -> str:
+    """Convert reference numbers like [1], [2] to clickable links without the full reference section"""
+    # Pattern to match reference numbers like [1], [2], etc.
+    pattern = r'\[(\d+)\]'
+    
+    def replace_reference(match):
+        ref_num = match.group(1)
+        # Create a clickable link with better styling
+        return f'<a href="#ref-{ref_num}" style="color: #00ACB5; text-decoration: none; font-weight: bold; background-color: rgba(0, 172, 181, 0.1); padding: 2px 4px; border-radius: 3px; border: 1px solid #00ACB5;">[{ref_num}]</a>'
+    
+    # Replace all reference numbers with clickable links
+    processed_text = re.sub(pattern, replace_reference, text)
     
     return processed_text
 
@@ -555,8 +694,8 @@ def display_sentiment_trend(news_data: Dict):
 
 def display_executive_dashboard():
     """Display executive-focused dashboard with action items and risk matrix"""
-    # Fetch AI trends summary for action items
-    trends_summary = fetch_ai_trends()
+    # Fetch executive action items
+    action_items_text = fetch_executive_action_items()
     
     # Create risk matrix data
     risk_matrix_data = create_risk_matrix()
@@ -623,28 +762,22 @@ def display_executive_dashboard():
     
     with col1:
         st.subheader("📋 Strategic Action Items")
-        if trends_summary:
-            # Extract action items from the AI trends summary
-            action_items = extract_action_items(trends_summary)
-            if action_items:
-                for i, item in enumerate(action_items, 1):
-                    st.markdown(f"**{i}.** {item}")
-            else:
-                st.info("No specific action items found. Here are strategic recommendations:")
-                # Fallback to general strategic recommendations
-                strategic_recommendations = [
-                    "Conduct comprehensive AI ethics review and framework implementation",
-                    "Evaluate current AI talent pipeline and identify critical hiring needs",
-                    "Assess regulatory compliance readiness for upcoming AI legislation",
-                    "Review AI investment portfolio and identify new opportunities",
-                    "Develop AI governance structure and decision-making processes"
-                ]
-                for i, rec in enumerate(strategic_recommendations, 1):
-                    st.markdown(f"**{i}.** {rec}")
+        if action_items_text:
+            # Process action items with citations
+            processed_action_items = extract_citations_and_make_links(action_items_text)
+            st.markdown(processed_action_items, unsafe_allow_html=True)
         else:
-            st.info("Loading action items from AI trends analysis...")
-            if st.button("🔄 Generate Action Items", key="generate_actions"):
-                st.rerun()
+            st.info("No specific action items found. Here are strategic recommendations:")
+            # Fallback to general strategic recommendations
+            strategic_recommendations = [
+                "Conduct comprehensive AI ethics review and framework implementation",
+                "Evaluate current AI talent pipeline and identify critical hiring needs",
+                "Assess regulatory compliance readiness for upcoming AI legislation",
+                "Review AI investment portfolio and identify new opportunities",
+                "Develop AI governance structure and decision-making processes"
+            ]
+            for i, rec in enumerate(strategic_recommendations, 1):
+                st.markdown(f"**{i}.** {rec}")
     
     with col2:
         st.subheader("📊 Risk Matrix")
@@ -657,18 +790,18 @@ def display_executive_dashboard():
     
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("**Market Trends**")
-        st.markdown("• AI investment continues to accelerate")
-        st.markdown("• Regulatory landscape evolving rapidly")
-        st.markdown("• Talent competition intensifying")
-        st.markdown("• Open source vs proprietary model debate intensifying")
+        st.markdown("**🚀 Key Opportunities**")
+        st.markdown("• **Model Consolidation**: Major players acquiring AI startups")
+        st.markdown("• **Regulatory First-Mover**: Early compliance advantage")
+        st.markdown("• **Talent Acquisition**: Strategic hiring from top AI labs")
+        st.markdown("• **Open Source Strategy**: Leverage community models")
         
     with col2:
-        st.markdown("**Competitive Landscape**")
-        st.markdown("• Major players consolidating")
-        st.markdown("• Startup ecosystem thriving")
-        st.markdown("• International competition growing")
-        st.markdown("• Vertical AI solutions gaining traction")
+        st.markdown("**⚠️ Critical Risks**")
+        st.markdown("• **Regulatory Uncertainty**: Policy changes ahead")
+        st.markdown("• **Compute Costs**: GPU shortages & pricing")
+        st.markdown("• **IP Battles**: Model ownership disputes")
+        st.markdown("• **Ethics Backlash**: Public trust concerns")
     
     # Refresh button at the bottom
     st.markdown("---")
@@ -773,7 +906,9 @@ def display_simplified_risk_matrix(risk_data: Dict):
         if quadrant_opportunities:
             content_html += '<div class="quadrant-content">'
             for opp in quadrant_opportunities[:3]:  # Show first 3 opportunities
-                content_html += f'<div class="opportunity-item">• {opp["opportunity"]}</div>'
+                # Process reference links in opportunity text to make them clickable
+                processed_opportunity = extract_citations_and_make_links(opp["opportunity"])
+                content_html += f'<div class="opportunity-item">• {processed_opportunity}</div>'
             if len(quadrant_opportunities) > 3:
                 content_html += f'<div class="opportunity-item">... and {len(quadrant_opportunities) - 3} more</div>'
             content_html += '</div>'
@@ -795,33 +930,6 @@ def display_simplified_risk_matrix(risk_data: Dict):
     """
     
     st.markdown(matrix_html, unsafe_allow_html=True)
-
-def extract_action_items(trends_summary: str) -> List[str]:
-    """Extract action items from AI trends summary"""
-    action_items = []
-    
-    # Look for action items section
-    if "Action Items for AI Leaders" in trends_summary:
-        # Extract the action items section
-        start_marker = "Action Items for AI Leaders"
-        end_marker = "**Bottom Line**" if "**Bottom Line**" in trends_summary else None
-        
-        if end_marker:
-            action_section = trends_summary.split(start_marker)[1].split(end_marker)[0]
-        else:
-            action_section = trends_summary.split(start_marker)[1]
-        
-        # Extract bullet points
-        lines = action_section.split('\n')
-        for line in lines:
-            line = line.strip()
-            if line.startswith('-') or line.startswith('•'):
-                # Clean up the action item
-                item = line.lstrip('- ').lstrip('• ').strip()
-                if item and len(item) > 10:  # Ensure it's a meaningful action item
-                    action_items.append(item)
-    
-    return action_items
 
 def create_risk_matrix() -> Dict:
     """Create dynamic risk matrix data based on current news and trends"""
@@ -1133,7 +1241,7 @@ def main():
     # Initialize session state
     initialize_session_state()
 
-    st.title("Below the Fold - Tech News Dashboard")
+    st.title("What's happening in AI")
     
     # Add update controls in a sidebar
     with st.sidebar:

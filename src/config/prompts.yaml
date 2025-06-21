@@ -200,6 +200,8 @@ ai_trends_summary:
   template: |
     Provide a concise, executive-level summary of the most critical AI developments from the past week. Focus on what matters for AI leaders, executives, and decision-makers.
 
+    IMPORTANT: Include citations for all sources in the format [1] Source Name - Title (URL), [2] Source Name - Title (URL), etc. at the end of your response.
+
     Structure your response as follows:
 
     **Executive Summary** (2-3 sentences)
@@ -208,24 +210,38 @@ ai_trends_summary:
     **Key Strategic Developments** (3-4 bullet points)
     - Focus on major company moves, funding, acquisitions, and strategic partnerships
     - Highlight what this means for competitive positioning
-    - Include specific implications for AI leadership
-
-    **Technology Breakthroughs** (2-3 bullet points)
-    - New models, capabilities, or research that change the game
-    - What this means for product development and innovation
-    - Competitive advantages or threats to consider
-
-    **Market & Regulatory Shifts** (2-3 bullet points)
-    - Policy changes, regulatory developments, or market dynamics
-    - How this affects AI strategy and risk management
-    - Compliance and governance considerations
+    - Include specific implications for AI leaders
 
     **Action Items for AI Leaders** (3-4 bullet points)
-    - Specific recommendations for what to watch, invest in, or prepare for
-    - Strategic decisions to consider
-    - Risk mitigation or opportunity capture strategies
+    - Prioritize building or acquiring AI agent capabilities that can autonomously manage dynamic workflows to boost productivity and customer engagement
+    - Accelerate development of multimodal AI systems that can process and generate content across text, image, video, and audio formats
+    - Invest in AI-powered customer experience platforms that can provide personalized, real-time interactions across all touchpoints
+    - Develop comprehensive AI governance frameworks that balance innovation with responsible deployment and risk management
 
-    Keep it concise, actionable, and focused on business impact. Avoid technical jargon. Target 300-400 words total.
-  max_tokens: 1200
-  temperature: 0.7
-  model: sonar 
+    **Bottom Line** (1-2 sentences)
+    The most critical takeaway for AI leaders and decision-makers.
+
+    **Citations:**
+    [1] Source Name - Title (URL)
+    [2] Source Name - Title (URL)
+    [3] Source Name - Title (URL)
+    [4] Source Name - Title (URL)
+
+executive_action_items:
+  template: |
+    Based on the latest AI industry developments, provide exactly 3 specific, actionable strategic items for AI leaders and executives to prioritize. Focus on the most impactful actions they can take to stay competitive and drive value.
+
+    IMPORTANT: Include citations for all sources in the format [1] Source Name - Title (URL), [2] Source Name - Title (URL), etc. at the end of your response. Prioritize high-quality sources like TechCrunch, The Verge, MIT Technology Review, Nature, Science, Financial Times, etc.
+
+    Structure your response as follows:
+
+    **Strategic Action Items for AI Leaders:**
+
+    1. [Specific action item with reference to relevant development] [citation number]
+    2. [Specific action item with reference to relevant development] [citation number]
+    3. [Specific action item with reference to relevant development] [citation number]
+
+    **Citations:**
+    [1] Source Name - Title (URL)
+    [2] Source Name - Title (URL)
+    [3] Source Name - Title (URL) 

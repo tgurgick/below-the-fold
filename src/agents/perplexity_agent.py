@@ -323,6 +323,59 @@ Requirements:
             logger.error(f"PerplexityAgent: Error generating AI trends summary: {str(e)}", exc_info=True)
             raise Exception(f"Error generating AI trends summary: {str(e)}")
 
+    async def generate_executive_action_items(self) -> str:
+        """
+        Generate executive action items with citations.
+        
+        Returns:
+            str: Executive action items with citations
+        """
+        logger.info(f"PerplexityAgent: Starting executive action items generation")
+        
+        prompt = self.config_loader.get_prompt('prompts.yaml', 'executive_action_items')
+        logger.debug(f"PerplexityAgent: Generated executive action items prompt with {len(prompt)} characters")
+
+        try:
+            logger.info(f"PerplexityAgent: Making API call for executive action items with model=sonar")
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                    "accept": "application/json"
+                },
+                json={
+                    "model": "sonar",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are an executive strategy consultant. Provide specific, actionable strategic items for AI leaders with proper citations."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ]
+                }
+            )
+            response.raise_for_status()
+            
+            logger.info(f"PerplexityAgent: Executive action items API call successful - status_code={response.status_code}")
+            
+            content = response.json()["choices"][0]["message"]["content"]
+            logger.debug(f"PerplexityAgent: Executive action items response length: {len(content)} characters")
+            
+            # Track token usage
+            self.token_calculator.add_usage(prompt, content, "sonar")
+            logger.info(f"PerplexityAgent: Token usage tracked for executive action items")
+            
+            logger.info(f"PerplexityAgent: Executive action items generation completed successfully")
+            return content
+            
+        except Exception as e:
+            logger.error(f"PerplexityAgent: Error generating executive action items: {str(e)}", exc_info=True)
+            raise Exception(f"Error generating executive action items: {str(e)}")
+
     def get_token_usage(self) -> Dict[str, Any]:
         """
         Get the current token usage statistics.
